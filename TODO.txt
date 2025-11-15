@@ -14,7 +14,7 @@ For any task to be “done”:
 Epic 0 — Project Bootstrapping & Architecture
 
 Goal: Set up a solid, testable CLI project with a clear architecture for agents, tasks, hooks, and rate limits.
-	•	⬜ Task 0.1 — Choose language, framework, and repo layout
+	•	✅ Task 0.1 — Choose language, framework, and repo layout
 	•	Use python programming language in a python package format that could be installed with pip.
 	•	Create basic repo structure (src/, tests/, examples/, docs/).
 	•	Add license and CONTRIBUTING file.
