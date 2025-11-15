@@ -71,9 +71,7 @@ class TestClaudeClientInitialization:
         """Test initialization with custom parameters."""
         from taskmaster.claude_client import ClaudeClient
 
-        client = ClaudeClient(
-            api_key="test-key", max_tokens=2048, temperature=0.5
-        )
+        client = ClaudeClient(api_key="test-key", max_tokens=2048, temperature=0.5)
         assert client.default_max_tokens == 2048
         assert client.default_temperature == 0.5
 
@@ -136,9 +134,7 @@ class TestClaudeClientCompletion:
         mock_anthropic.Anthropic.return_value = mock_client
 
         client = ClaudeClient(api_key="test-key")
-        request = CompletionRequest(
-            prompt="Hello", system_prompt="You are a helpful assistant"
-        )
+        request = CompletionRequest(prompt="Hello", system_prompt="You are a helpful assistant")
         client.generate_completion(request)
 
         # Verify system prompt was passed
@@ -217,9 +213,7 @@ class TestClaudeClientErrorHandling:
         AnthropicRateLimitError.__name__ = "RateLimitError"
 
         mock_client = Mock()
-        mock_client.messages.create.side_effect = AnthropicRateLimitError(
-            "Rate limit exceeded"
-        )
+        mock_client.messages.create.side_effect = AnthropicRateLimitError("Rate limit exceeded")
         mock_anthropic.Anthropic.return_value = mock_client
 
         client = ClaudeClient(api_key="test-key")
@@ -279,7 +273,9 @@ class TestClaudeClientErrorHandling:
         AnthropicInternalServerError.__name__ = "InternalServerError"
 
         mock_client = Mock()
-        mock_client.messages.create.side_effect = AnthropicInternalServerError("Internal server error")
+        mock_client.messages.create.side_effect = AnthropicInternalServerError(
+            "Internal server error"
+        )
         mock_anthropic.Anthropic.return_value = mock_client
 
         client = ClaudeClient(api_key="test-key")
@@ -392,9 +388,7 @@ class TestClaudeClientCodeChanges:
         mock_anthropic.Anthropic.return_value = mock_client
 
         client = ClaudeClient(api_key="test-key")
-        request = CodeChangeRequest(
-            repo_path="/path/to/repo", instructions="Fix the bug"
-        )
+        request = CodeChangeRequest(repo_path="/path/to/repo", instructions="Fix the bug")
         response = client.apply_code_changes(request)
 
         assert "Changes explained" in response.explanation
@@ -417,9 +411,7 @@ class TestClaudeClientCodeChanges:
         mock_anthropic.Anthropic.return_value = mock_client
 
         client = ClaudeClient(api_key="test-key")
-        request = CodeChangeRequest(
-            repo_path="/repo", instructions="Add feature", dry_run=True
-        )
+        request = CodeChangeRequest(repo_path="/repo", instructions="Add feature", dry_run=True)
         client.apply_code_changes(request)
 
         # Verify dry run was mentioned in prompt

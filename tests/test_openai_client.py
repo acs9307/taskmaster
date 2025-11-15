@@ -70,9 +70,7 @@ class TestOpenAIClientInitialization:
         """Test initialization with custom parameters."""
         from taskmaster.openai_client import OpenAIClient
 
-        client = OpenAIClient(
-            api_key="test-key", max_tokens=2048, temperature=0.5
-        )
+        client = OpenAIClient(api_key="test-key", max_tokens=2048, temperature=0.5)
         assert client.default_max_tokens == 2048
         assert client.default_temperature == 0.5
 
@@ -103,9 +101,7 @@ class TestOpenAIClientCompletion:
         mock_response.created = 1234567890
         mock_response.model = "gpt-4"
         mock_response.choices = [mock_choice]
-        mock_response.usage = Mock(
-            prompt_tokens=10, completion_tokens=5, total_tokens=15
-        )
+        mock_response.usage = Mock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
 
         mock_client = Mock()
         mock_client.chat.completions.create.return_value = mock_response
@@ -143,9 +139,7 @@ class TestOpenAIClientCompletion:
         mock_openai.OpenAI.return_value = mock_client
 
         client = OpenAIClient(api_key="test-key")
-        request = CompletionRequest(
-            prompt="Hello", system_prompt="You are a helpful assistant"
-        )
+        request = CompletionRequest(prompt="Hello", system_prompt="You are a helpful assistant")
         client.generate_completion(request)
 
         # Verify system prompt was passed
@@ -252,7 +246,9 @@ class TestOpenAIClientErrorHandling:
         OpenAIAuthenticationError.__name__ = "AuthenticationError"
 
         mock_client = Mock()
-        mock_client.chat.completions.create.side_effect = OpenAIAuthenticationError("Invalid API key")
+        mock_client.chat.completions.create.side_effect = OpenAIAuthenticationError(
+            "Invalid API key"
+        )
         mock_openai.OpenAI.return_value = mock_client
 
         client = OpenAIClient(api_key="test-key")
@@ -292,7 +288,9 @@ class TestOpenAIClientErrorHandling:
         OpenAIInternalServerError.__name__ = "InternalServerError"
 
         mock_client = Mock()
-        mock_client.chat.completions.create.side_effect = OpenAIInternalServerError("Internal server error")
+        mock_client.chat.completions.create.side_effect = OpenAIInternalServerError(
+            "Internal server error"
+        )
         mock_openai.OpenAI.return_value = mock_client
 
         client = OpenAIClient(api_key="test-key")
@@ -312,7 +310,9 @@ class TestOpenAIClientErrorHandling:
         OpenAIAPIConnectionError.__name__ = "APIConnectionError"
 
         mock_client = Mock()
-        mock_client.chat.completions.create.side_effect = OpenAIAPIConnectionError("Connection failed")
+        mock_client.chat.completions.create.side_effect = OpenAIAPIConnectionError(
+            "Connection failed"
+        )
         mock_openai.OpenAI.return_value = mock_client
 
         client = OpenAIClient(api_key="test-key")
@@ -408,9 +408,7 @@ class TestOpenAIClientCodeChanges:
         mock_openai.OpenAI.return_value = mock_client
 
         client = OpenAIClient(api_key="test-key")
-        request = CodeChangeRequest(
-            repo_path="/path/to/repo", instructions="Fix the bug"
-        )
+        request = CodeChangeRequest(repo_path="/path/to/repo", instructions="Fix the bug")
         response = client.apply_code_changes(request)
 
         assert "Changes explained" in response.explanation
@@ -436,9 +434,7 @@ class TestOpenAIClientCodeChanges:
         mock_openai.OpenAI.return_value = mock_client
 
         client = OpenAIClient(api_key="test-key")
-        request = CodeChangeRequest(
-            repo_path="/repo", instructions="Add feature", dry_run=True
-        )
+        request = CodeChangeRequest(repo_path="/repo", instructions="Add feature", dry_run=True)
         client.apply_code_changes(request)
 
         # Verify dry run was mentioned in prompt
@@ -492,7 +488,9 @@ class TestOpenAIClientUtilities:
         OpenAIAuthenticationError.__name__ = "AuthenticationError"
 
         mock_client = Mock()
-        mock_client.chat.completions.create.side_effect = OpenAIAuthenticationError("Invalid API key")
+        mock_client.chat.completions.create.side_effect = OpenAIAuthenticationError(
+            "Invalid API key"
+        )
         mock_openai.OpenAI.return_value = mock_client
 
         client = OpenAIClient(api_key="test-key")

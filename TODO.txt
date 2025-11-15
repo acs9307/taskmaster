@@ -105,11 +105,11 @@ Goal: Make the CLI able to talk to Claude or Codex (or future agents) via a clea
 Epic 3 — Task-to-Agent Pipeline
 
 Goal: For each task, construct prompts, send to agent, and capture outputs in a reproducible way.
-	•	⬜ Task 3.1 — Prompt builder
+	•	✅ Task 3.1 — Prompt builder
 	•	Implement a prompt template that includes:
 	•	Task title & description.
 	•	Current repo state (optional: git status, file snippets).
-	•	Pre- and post-conditions (e.g. “tests must pass: pytest”).
+	•	Pre- and post-conditions (e.g. "tests must pass: pytest").
 	•	Allow user override/customization via template file.
 	•	⬜ Task 3.2 — Run agent for a single task
 	•	Integrate AgentClient into the task runner.
