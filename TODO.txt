@@ -82,7 +82,7 @@ tasks:
 Epic 2 — Agent Provider Abstraction (Claude / Codex)
 
 Goal: Make the CLI able to talk to Claude or Codex (or future agents) via a clean, pluggable interface.
-	•	⬜ Task 2.1 — Define AgentClient interface
+	•	✅ Task 2.1 — Define AgentClient interface
 	•	Methods like:
 	•	generate_completion(prompt, context).
 	•	Optional: apply_code_changes(repo_path, instructions) (if you want automated edits).
