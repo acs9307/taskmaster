@@ -111,7 +111,7 @@ Goal: For each task, construct prompts, send to agent, and capture outputs in a 
 	•	Current repo state (optional: git status, file snippets).
 	•	Pre- and post-conditions (e.g. "tests must pass: pytest").
 	•	Allow user override/customization via template file.
-	•	⬜ Task 3.2 — Run agent for a single task
+	•	✅ Task 3.2 — Run agent for a single task
 	•	Integrate AgentClient into the task runner.
 	•	For each task:
 	•	Build prompt.

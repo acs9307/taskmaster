@@ -373,3 +373,150 @@ tasks:
         """Test run command with invalid file."""
         result = self.runner.invoke(main, ["run", "/nonexistent/file.yml"])
         assert result.exit_code != 0
+
+
+class TestAgentIntegration:
+    """Tests for agent integration in task runner."""
+
+    def test_run_task_with_agent(self):
+        """Test running a task with an agent client."""
+        from unittest.mock import MagicMock
+
+        from taskmaster.agent_client import CompletionResponse
+
+        task = Task(
+            id="T1",
+            title="Test task",
+            description="A test task",
+        )
+        task_list = TaskList()
+        task_list.add_task(task)
+        task_file = Path("tasks.yml")
+
+        # Mock agent client
+        mock_agent = MagicMock()
+        mock_response = CompletionResponse(
+            content="Task completed successfully",
+            model="test-model",
+            usage={"total_tokens": 100},
+        )
+        mock_agent.generate_completion.return_value = mock_response
+        mock_agent.get_model_name.return_value = "test-model"
+
+        runner = TaskRunner(task_list, task_file, agent_client=mock_agent, provider_name="test")
+
+        # Run task
+        success = runner.run()
+
+        assert success is True
+        assert mock_agent.generate_completion.called
+        assert task.status == TaskStatus.COMPLETED
+
+    def test_run_task_agent_error(self):
+        """Test handling agent errors."""
+        from unittest.mock import MagicMock
+
+        from taskmaster.agent_client import AgentError, ErrorType
+
+        task = Task(
+            id="T1",
+            title="Test task",
+            description="A test task",
+        )
+        task_list = TaskList()
+        task_list.add_task(task)
+        task_file = Path("tasks.yml")
+
+        # Mock agent client that raises an error
+        mock_agent = MagicMock()
+        mock_agent.generate_completion.side_effect = AgentError(
+            "Test error", error_type=ErrorType.TRANSIENT
+        )
+        mock_agent.get_model_name.return_value = "test-model"
+
+        runner = TaskRunner(task_list, task_file, agent_client=mock_agent, provider_name="test")
+
+        # Run task
+        success = runner.run()
+
+        assert success is False
+        assert task.status == TaskStatus.FAILED
+
+    def test_run_task_saves_log(self):
+        """Test that agent responses are logged."""
+        import tempfile
+        from unittest.mock import MagicMock
+
+        from taskmaster.agent_client import CompletionResponse
+
+        task = Task(
+            id="T1",
+            title="Test task",
+            description="A test task",
+        )
+        task_list = TaskList()
+        task_list.add_task(task)
+        task_file = Path("tasks.yml")
+
+        # Mock agent client
+        mock_agent = MagicMock()
+        mock_response = CompletionResponse(
+            content="Task completed successfully",
+            model="test-model",
+            usage={"total_tokens": 100},
+        )
+        mock_agent.generate_completion.return_value = mock_response
+        mock_agent.get_model_name.return_value = "test-model"
+
+        # Use temporary directory for logs
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir) / "logs"
+
+            runner = TaskRunner(
+                task_list,
+                task_file,
+                agent_client=mock_agent,
+                provider_name="test",
+                log_dir=log_dir,
+            )
+
+            # Run task
+            success = runner.run()
+
+            assert success is True
+
+            # Check that log file was created
+            log_files = list(log_dir.glob("T1_*.json"))
+            assert len(log_files) == 1
+
+            # Check log contents
+            import json
+
+            with open(log_files[0]) as f:
+                log_data = json.load(f)
+
+            assert log_data["task"]["id"] == "T1"
+            assert log_data["response"]["content"] == "Task completed successfully"
+            assert log_data["response"]["model"] == "test-model"
+            assert log_data["execution"]["provider"] == "test"
+
+    def test_run_task_without_agent(self):
+        """Test running a task without an agent client."""
+        task = Task(
+            id="T1",
+            title="Test task",
+            description="A test task",
+        )
+        task_list = TaskList()
+        task_list.add_task(task)
+        task_file = Path("tasks.yml")
+
+        # No agent client provided
+        runner = TaskRunner(task_list, task_file)
+
+        # Run task
+        success = runner.run()
+
+        # Should still succeed (marks task as completed without agent)
+        assert success is True
+        assert task.status == TaskStatus.COMPLETED

@@ -1,12 +1,15 @@
 """Task runner for sequential task execution."""
 
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import click
 
-from taskmaster.agent_client import AgentClient
-from taskmaster.models import TaskList
+from taskmaster.agent_client import AgentClient, AgentError, CompletionRequest
+from taskmaster.models import Task, TaskList
+from taskmaster.prompt_builder import PromptBuilder, PromptContext
 from taskmaster.state import RunState, load_state, save_state
 from taskmaster.task_parser import load_task_list
 
@@ -26,6 +29,7 @@ class TaskRunner:
         state: Optional[RunState] = None,
         agent_client: Optional[AgentClient] = None,
         provider_name: Optional[str] = None,
+        log_dir: Optional[Path] = None,
     ):
         """
         Initialize task runner.
@@ -37,12 +41,15 @@ class TaskRunner:
             state: Optional existing state to resume from
             agent_client: Optional AI agent client for task execution
             provider_name: Name of the provider being used
+            log_dir: Directory to store agent response logs (defaults to .taskmaster/logs)
         """
         self.task_list = task_list
         self.task_file = task_file
         self.dry_run = dry_run
         self.agent_client = agent_client
         self.provider_name = provider_name
+        self.log_dir = log_dir or Path(".taskmaster") / "logs"
+        self.prompt_builder = PromptBuilder()
 
         # Initialize or use provided state
         if state is None:
@@ -128,7 +135,7 @@ class TaskRunner:
 
         return all_successful
 
-    def _run_task(self, task, task_num: int, total_tasks: int) -> bool:
+    def _run_task(self, task: Task, task_num: int, total_tasks: int) -> bool:
         """
         Execute a single task.
 
@@ -159,22 +166,139 @@ class TaskRunner:
         task.mark_running()
         click.echo(f"\nStatus: {task.status.value}")
 
-        # Simulate task execution
+        # Execute task
         click.echo()
-        if not self.dry_run:
-            click.secho("⚙  Executing task...", fg="yellow")
-            # TODO: In Task 2.x and 3.x, this will call the actual agent
-            click.echo("   → Would call AI agent to execute this task")
-            click.echo("   → Agent would receive task description and context")
-            click.echo("   → Agent would perform the required work")
-        else:
+        if self.dry_run:
             click.secho("[DRY RUN] Would execute task", fg="yellow")
+            task.mark_completed()
+            click.secho(f"\n✓ Task completed: {task.title}", fg="green")
+            return True
 
-        # For now, always succeed (no actual execution yet)
-        task.mark_completed()
-        click.secho(f"\n✓ Task completed: {task.title}", fg="green")
+        # Execute with agent if available
+        if self.agent_client:
+            return self._execute_with_agent(task)
+        else:
+            # No agent available - just mark as completed
+            click.secho("⚙  No agent configured - marking as completed", fg="yellow")
+            task.mark_completed()
+            click.secho(f"\n✓ Task completed: {task.title}", fg="green")
+            return True
 
-        return True
+    def _execute_with_agent(self, task: Task) -> bool:
+        """
+        Execute a task using the AI agent.
+
+        Args:
+            task: Task to execute
+
+        Returns:
+            True if task completed successfully, False otherwise
+        """
+        try:
+            # Build prompt for the task
+            click.secho("⚙  Building prompt...", fg="yellow")
+            context = PromptContext(
+                task=task,
+                repo_path=Path.cwd(),
+                include_git_status=True,
+                include_file_snippets=False,
+            )
+            prompt_components = self.prompt_builder.build_prompt(context)
+
+            # Create completion request
+            request = CompletionRequest(
+                prompt=prompt_components.to_full_prompt(),
+                system_prompt=prompt_components.system_prompt,
+            )
+
+            # Call agent
+            click.secho(f"⚙  Calling agent ({self.provider_name})...", fg="yellow")
+            response = self.agent_client.generate_completion(request)
+
+            # Save response to log file
+            self._save_response_log(task, prompt_components, response)
+
+            # Display response summary
+            click.echo(f"\n✓ Agent response received ({len(response.content)} chars)")
+            click.echo(f"  Model: {response.model}")
+            if response.usage:
+                click.echo(f"  Tokens: {response.usage.get('total_tokens', 'N/A')}")
+
+            # Mark task as completed
+            task.mark_completed()
+            click.secho(f"\n✓ Task completed: {task.title}", fg="green")
+
+            return True
+
+        except AgentError as e:
+            # Handle agent-specific errors
+            click.secho(f"\n✗ Agent error: {e}", fg="red")
+
+            if e.is_retryable():
+                click.secho("  → This error is retryable", fg="yellow")
+            else:
+                click.secho("  → This error is not retryable", fg="red")
+
+            task.mark_failed()
+            return False
+
+        except Exception as e:
+            # Handle unexpected errors
+            click.secho(f"\n✗ Unexpected error: {e}", fg="red")
+            task.mark_failed()
+            return False
+
+    def _save_response_log(self, task: Task, prompt_components, response) -> None:
+        """
+        Save agent response to a log file.
+
+        Args:
+            task: The task that was executed
+            prompt_components: The prompt components used
+            response: The agent response
+        """
+        # Create log directory if it doesn't exist
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create log filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_filename = f"{task.id}_{timestamp}.json"
+        log_path = self.log_dir / log_filename
+
+        # Prepare log data
+        log_data = {
+            "task": {
+                "id": task.id,
+                "title": task.title,
+                "description": task.description,
+                "path": task.path,
+                "metadata": task.metadata,
+            },
+            "prompt": {
+                "system_prompt": prompt_components.system_prompt,
+                "task_description": prompt_components.task_description,
+                "context": prompt_components.context,
+                "constraints": prompt_components.constraints,
+                "full_prompt": prompt_components.to_full_prompt(),
+            },
+            "response": {
+                "content": response.content,
+                "model": response.model,
+                "usage": response.usage,
+                "finish_reason": response.finish_reason,
+                "metadata": response.metadata,
+            },
+            "execution": {
+                "timestamp": timestamp,
+                "provider": self.provider_name,
+            },
+        }
+
+        # Write log file
+        with open(log_path, "w") as f:
+            json.dump(log_data, f, indent=2)
+
+        click.echo(f"  Log saved: {log_path}")
 
     def get_summary(self) -> dict:
         """
