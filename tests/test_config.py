@@ -6,6 +6,7 @@ from pathlib import Path
 
 from taskmaster.config import (
     Config,
+    HookConfig,
     HookDefaults,
     Provider,
     ProviderConfig,
@@ -86,6 +87,47 @@ class TestProviderConfig:
         """Test getting API key when none configured."""
         config = ProviderConfig(provider=Provider.CLAUDE)
         assert config.get_api_key() is None
+
+
+class TestHookConfig:
+    """Tests for HookConfig."""
+
+    def test_hook_config_creation(self):
+        """Test creating a hook config."""
+        config = HookConfig(
+            command="pytest",
+            description="Run unit tests",
+        )
+        assert config.command == "pytest"
+        assert config.description == "Run unit tests"
+        assert config.working_dir is None
+        assert config.timeout == 300
+        assert config.continue_on_failure is False
+        assert config.environment == {}
+
+    def test_hook_config_with_all_fields(self):
+        """Test hook config with all fields."""
+        config = HookConfig(
+            command="pytest tests/",
+            working_dir="src",
+            timeout=600,
+            continue_on_failure=True,
+            environment={"PYTHONPATH": "src"},
+            description="Run all tests",
+        )
+        assert config.command == "pytest tests/"
+        assert config.working_dir == "src"
+        assert config.timeout == 600
+        assert config.continue_on_failure is True
+        assert config.environment == {"PYTHONPATH": "src"}
+        assert config.description == "Run all tests"
+
+    def test_hook_config_minimal(self):
+        """Test hook config with minimal configuration."""
+        config = HookConfig(command="npm install")
+        assert config.command == "npm install"
+        assert config.timeout == 300  # default
+        assert config.continue_on_failure is False  # default
 
 
 class TestHookDefaults:
@@ -185,6 +227,52 @@ class TestConfig:
         config = Config(max_attempts_per_task=0)
         errors = config.validate()
         assert any("max_attempts_per_task must be >= 1" in e for e in errors)
+
+    def test_validate_hook_empty_command(self):
+        """Test validation with hook having empty command."""
+        hook_config = HookConfig(command="")
+        config = Config(hooks={"test": hook_config})
+        errors = config.validate()
+        assert any("command cannot be empty" in e for e in errors)
+
+    def test_validate_hook_negative_timeout(self):
+        """Test validation with hook having negative timeout."""
+        hook_config = HookConfig(command="pytest", timeout=-10)
+        config = Config(hooks={"test": hook_config})
+        errors = config.validate()
+        assert any("timeout must be >= 0" in e for e in errors)
+
+    def test_validate_hook_reference_missing(self):
+        """Test validation when hook_defaults reference non-existent hook."""
+        hook_defaults = HookDefaults(pre_hooks=["missing-hook"])
+        config = Config(hook_defaults=hook_defaults)
+        errors = config.validate()
+        assert any(
+            "'missing-hook' referenced in hook_defaults.pre_hooks not found" in e for e in errors
+        )
+
+    def test_validate_post_hook_reference_missing(self):
+        """Test validation when hook_defaults.post_hooks reference non-existent hook."""
+        hook_defaults = HookDefaults(post_hooks=["missing-hook"])
+        config = Config(hook_defaults=hook_defaults)
+        errors = config.validate()
+        assert any(
+            "'missing-hook' referenced in hook_defaults.post_hooks not found" in e for e in errors
+        )
+
+    def test_get_hook(self):
+        """Test getting a hook by ID."""
+        hook_config = HookConfig(command="pytest")
+        config = Config(hooks={"test": hook_config})
+        result = config.get_hook("test")
+        assert result is not None
+        assert result.command == "pytest"
+
+    def test_get_hook_missing(self):
+        """Test getting a non-existent hook."""
+        config = Config()
+        result = config.get_hook("missing")
+        assert result is None
 
 
 class TestConfigLoader:
@@ -289,6 +377,53 @@ providers:
         assert config.hook_defaults.pre_hooks == ["install"]
         assert config.max_attempts_per_task == 5
 
+    def test_parse_config_with_hooks(self):
+        """Test parsing configuration with hooks."""
+        data = {
+            "hooks": {
+                "unit-tests": {
+                    "command": "pytest tests/",
+                    "description": "Run unit tests",
+                    "timeout": 600,
+                },
+                "install-deps": {
+                    "command": "poetry install",
+                    "working_dir": ".",
+                    "continue_on_failure": False,
+                },
+            },
+            "hook_defaults": {
+                "pre_hooks": ["install-deps"],
+                "post_hooks": ["unit-tests"],
+            },
+        }
+
+        config = parse_config(data)
+        assert "unit-tests" in config.hooks
+        assert "install-deps" in config.hooks
+        assert config.hooks["unit-tests"].command == "pytest tests/"
+        assert config.hooks["unit-tests"].description == "Run unit tests"
+        assert config.hooks["unit-tests"].timeout == 600
+        assert config.hooks["install-deps"].command == "poetry install"
+        assert config.hooks["install-deps"].working_dir == "."
+        assert config.hook_defaults.pre_hooks == ["install-deps"]
+        assert config.hook_defaults.post_hooks == ["unit-tests"]
+
+    def test_parse_config_with_hook_environment(self):
+        """Test parsing hook with environment variables."""
+        data = {
+            "hooks": {
+                "test": {
+                    "command": "pytest",
+                    "environment": {"PYTHONPATH": "src", "TEST_ENV": "ci"},
+                }
+            }
+        }
+
+        config = parse_config(data)
+        assert "test" in config.hooks
+        assert config.hooks["test"].environment == {"PYTHONPATH": "src", "TEST_ENV": "ci"}
+
     def test_merge_configs(self):
         """Test merging two configurations."""
         base = Config(
@@ -340,6 +475,32 @@ providers:
         # But base test_command is preserved when override doesn't set it
         assert merged.hook_defaults.test_command == "base-test"
         assert merged.hook_defaults.lint_command == "override-lint"
+
+    def test_merge_hooks(self):
+        """Test merging hooks configuration."""
+        base = Config(
+            hooks={
+                "base-hook": HookConfig(command="base-command"),
+                "shared-hook": HookConfig(command="base-shared"),
+            }
+        )
+
+        override = Config(
+            hooks={
+                "override-hook": HookConfig(command="override-command"),
+                "shared-hook": HookConfig(command="override-shared"),
+            }
+        )
+
+        merged = merge_configs(base, override)
+
+        # Should have hooks from both configs
+        assert "base-hook" in merged.hooks
+        assert "override-hook" in merged.hooks
+        # Shared hook should use override value
+        assert merged.hooks["shared-hook"].command == "override-shared"
+        # Base hook should be preserved
+        assert merged.hooks["base-hook"].command == "base-command"
 
     def test_validate_config_file(self):
         """Test validating a config file."""

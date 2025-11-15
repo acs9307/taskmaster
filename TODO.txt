@@ -127,7 +127,7 @@ Goal: For each task, construct prompts, send to agent, and capture outputs in a 
 Epic 4 — Pre- and Post-Task Hooks
 
 Goal: Allow user-configurable pre- and post-task commands (tests, linters, build steps, etc).
-	•	⬜ Task 4.1 — Hook configuration model
+	•	✅ Task 4.1 — Hook configuration model
 	•	Define hooks in config, e.g.:
 
 hooks:

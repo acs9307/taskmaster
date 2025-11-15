@@ -8,6 +8,7 @@ import yaml
 
 from taskmaster.config import (
     Config,
+    HookConfig,
     HookDefaults,
     Provider,
     ProviderConfig,
@@ -153,6 +154,33 @@ def parse_provider_config(name: str, data: dict[str, Any]) -> ProviderConfig:
     )
 
 
+def parse_hook_config(hook_id: str, data: dict[str, Any]) -> HookConfig:
+    """
+    Parse a hook configuration from dictionary.
+
+    Args:
+        hook_id: The hook identifier
+        data: Hook configuration dictionary
+
+    Returns:
+        HookConfig object
+
+    Raises:
+        ConfigLoadError: If hook configuration is invalid
+    """
+    if "command" not in data:
+        raise ConfigLoadError(f"Hook '{hook_id}': 'command' is required")
+
+    return HookConfig(
+        command=data["command"],
+        working_dir=data.get("working_dir"),
+        timeout=data.get("timeout", 300),
+        continue_on_failure=data.get("continue_on_failure", False),
+        environment=data.get("environment", {}),
+        description=data.get("description"),
+    )
+
+
 def parse_hook_defaults(data: dict[str, Any]) -> HookDefaults:
     """Parse hook defaults from dictionary."""
     return HookDefaults(
@@ -183,6 +211,12 @@ def parse_config(data: dict[str, Any]) -> Config:
     for name, provider_data in providers_data.items():
         provider_configs[name] = parse_provider_config(name, provider_data)
 
+    # Parse hooks
+    hooks = {}
+    hooks_data = data.get("hooks", {})
+    for hook_id, hook_data in hooks_data.items():
+        hooks[hook_id] = parse_hook_config(hook_id, hook_data)
+
     # Parse hook defaults
     hook_defaults_data = data.get("hook_defaults", {})
     hook_defaults = parse_hook_defaults(hook_defaults_data)
@@ -190,6 +224,7 @@ def parse_config(data: dict[str, Any]) -> Config:
     return Config(
         provider_configs=provider_configs,
         active_provider=data.get("active_provider", "claude"),
+        hooks=hooks,
         hook_defaults=hook_defaults,
         state_dir=data.get("state_dir", ".agent-runner"),
         log_dir=data.get("log_dir", "logs"),
@@ -217,6 +252,11 @@ def merge_configs(base: Config, override: Config) -> Config:
     for name, provider_config in override.provider_configs.items():
         merged_provider_configs[name] = provider_config
 
+    # Merge hooks
+    merged_hooks = dict(base.hooks)
+    for hook_id, hook_config in override.hooks.items():
+        merged_hooks[hook_id] = hook_config
+
     # Merge hook defaults
     merged_hook_defaults = HookDefaults(
         pre_hooks=(
@@ -240,6 +280,7 @@ def merge_configs(base: Config, override: Config) -> Config:
     return Config(
         provider_configs=merged_provider_configs,
         active_provider=override.active_provider,
+        hooks=merged_hooks,
         hook_defaults=merged_hook_defaults,
         state_dir=override.state_dir,
         log_dir=override.log_dir,

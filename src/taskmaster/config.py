@@ -81,6 +81,28 @@ class ProviderConfig:
 
 
 @dataclass
+class HookConfig:
+    """
+    Configuration for a command hook.
+
+    Attributes:
+        command: Shell command to execute
+        working_dir: Optional working directory for command execution (relative to repo root)
+        timeout: Optional timeout in seconds (default: 300)
+        continue_on_failure: Whether to continue if this hook fails (default: False)
+        environment: Optional environment variables to set for the command
+        description: Optional human-readable description of what the hook does
+    """
+
+    command: str
+    working_dir: Optional[str] = None
+    timeout: int = 300
+    continue_on_failure: bool = False
+    environment: dict[str, str] = field(default_factory=dict)
+    description: Optional[str] = None
+
+
+@dataclass
 class HookDefaults:
     """
     Default hook configuration.
@@ -108,6 +130,7 @@ class Config:
     Attributes:
         provider_configs: Map of provider name to configuration
         active_provider: Name of the currently active provider
+        hooks: Map of hook ID to hook configuration
         hook_defaults: Default hook configuration
         state_dir: Directory for state files (.agent-runner/)
         log_dir: Directory for log files
@@ -118,6 +141,7 @@ class Config:
 
     provider_configs: dict[str, ProviderConfig] = field(default_factory=dict)
     active_provider: str = "claude"
+    hooks: dict[str, HookConfig] = field(default_factory=dict)
     hook_defaults: HookDefaults = field(default_factory=HookDefaults)
     state_dir: str = ".agent-runner"
     log_dir: str = "logs"
@@ -179,7 +203,38 @@ class Config:
         if self.max_consecutive_failures < 1:
             errors.append("max_consecutive_failures must be >= 1")
 
+        # Validate hooks
+        for hook_id, hook_config in self.hooks.items():
+            if not hook_config.command:
+                errors.append(f"Hook '{hook_id}': command cannot be empty")
+            if hook_config.timeout < 0:
+                errors.append(f"Hook '{hook_id}': timeout must be >= 0")
+
+        # Validate hook references in hook_defaults
+        for hook_id in self.hook_defaults.pre_hooks:
+            if hook_id not in self.hooks:
+                errors.append(
+                    f"Hook '{hook_id}' referenced in hook_defaults.pre_hooks not found in hooks configuration"
+                )
+        for hook_id in self.hook_defaults.post_hooks:
+            if hook_id not in self.hooks:
+                errors.append(
+                    f"Hook '{hook_id}' referenced in hook_defaults.post_hooks not found in hooks configuration"
+                )
+
         return errors
+
+    def get_hook(self, hook_id: str) -> Optional[HookConfig]:
+        """
+        Get a hook configuration by ID.
+
+        Args:
+            hook_id: The hook identifier
+
+        Returns:
+            HookConfig if found, None otherwise
+        """
+        return self.hooks.get(hook_id)
 
 
 def get_default_config_path() -> Path:
