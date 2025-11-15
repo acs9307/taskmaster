@@ -93,7 +93,7 @@ Goal: Make the CLI able to talk to Claude or Codex (or future agents) via a clea
 	•	System prompt (e.g. "You are a coding assistant executing task X").
 	•	Task description and context.
 	•	Handle and surface errors in a structured way.
-	•	⬜ Task 2.3 — Implement Codex (or OpenAI) client
+	•	✅ Task 2.3 — Implement Codex (or OpenAI) client
 	•	Similar to Claude client, but for OpenAI/Codex API.
 	•	Support configurable model name.
 	•	⬜ Task 2.4 — Provider selection & config
