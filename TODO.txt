@@ -64,13 +64,13 @@ tasks:
 
 	•	Validate required fields and fail with clear messages.
 
-	•	⬜ Task 1.3 — Sequential task runner (no hooks, no agent yet)
+	•	✅ Task 1.3 — Sequential task runner (no hooks, no agent yet)
 	•	Implement basic loop:
 	•	Read task list.
 	•	Iterate tasks in order.
 	•	Mark task as started/completed.
-	•	For now, just log “Would call agent for task X”.
-	•	⬜ Task 1.4 — Progress tracking & persistence
+	•	For now, just log "Would call agent for task X".
+	•	✅ Task 1.4 — Progress tracking & persistence
 	•	Maintain a state file (e.g. .agent-runner/state.json) with:
 	•	Completed tasks.
 	•	Current task index.

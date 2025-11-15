@@ -135,4 +135,5 @@ Thumbs.db
 
 # Project specific
 .agent-runner/
+.taskmaster/
 logs/

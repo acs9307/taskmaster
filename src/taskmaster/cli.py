@@ -6,6 +6,8 @@ from typing import Optional
 import click
 
 from taskmaster.config_loader import load_config, validate_config_file
+from taskmaster.runner import run_tasks
+from taskmaster.state import clear_state, load_state
 
 
 @click.group()
@@ -53,9 +55,20 @@ def main(ctx):
     "-p",
     help="Override the active provider from config",
 )
+@click.option(
+    "--resume",
+    "-r",
+    is_flag=True,
+    help="Resume from saved state if available",
+)
 @click.pass_context
 def run(
-    ctx, task_file: Path, dry_run: bool, stop_on_failure: bool, provider: Optional[str]
+    ctx,
+    task_file: Path,
+    dry_run: bool,
+    stop_on_failure: bool,
+    provider: Optional[str],
+    resume: bool,
 ) -> None:
     """
     Run tasks from a task list file.
@@ -74,27 +87,18 @@ def run(
       taskmaster run tasks.yml --stop-on-failure
       taskmaster run tasks.yml --provider openai
     """
-    click.echo(f"Running tasks from: {task_file}")
-
-    if dry_run:
-        click.secho("DRY RUN MODE - No tasks will be executed", fg="yellow", bold=True)
-
-    if provider:
-        click.echo(f"Using provider: {provider}")
-
-    # TODO: Implement task runner (Task 1.3)
-    # For now, just acknowledge the command
-    click.secho(
-        "\n⚠ Task runner not yet implemented (coming in Task 1.3)", fg="yellow"
+    # Run tasks using the task runner
+    success = run_tasks(
+        task_file=task_file,
+        dry_run=dry_run,
+        stop_on_failure=stop_on_failure,
+        provider=provider,
+        resume=resume,
     )
-    click.echo("\nPlanned execution flow:")
-    click.echo("  1. Load and parse task file")
-    click.echo("  2. Load configuration")
-    click.echo("  3. Initialize state tracking")
-    click.echo("  4. Execute tasks sequentially")
-    click.echo("  5. Run pre/post hooks")
-    click.echo("  6. Handle failures and retries")
-    click.echo("  7. Save progress state")
+
+    # Exit with appropriate code
+    if not success:
+        raise click.exceptions.Exit(1)
 
 
 @main.command()
@@ -121,23 +125,68 @@ def status(ctx, verbose: bool) -> None:
     click.echo("TaskMaster Status")
     click.echo("=" * 50)
 
-    # TODO: Implement status display (Task 1.4)
-    # For now, show placeholder
-    click.secho("\n⚠ Status tracking not yet implemented (coming in Task 1.4)", fg="yellow")
-    click.echo("\nPlanned status display:")
-    click.echo("  • Total tasks: 0")
-    click.echo("  • Completed: 0")
-    click.echo("  • Pending: 0")
-    click.echo("  • Failed: 0")
-    click.echo("  • Current task: None")
-    click.echo("\nNo active task execution found.")
+    # Load state
+    state = load_state()
 
-    if verbose:
-        click.echo("\nVerbose mode would show:")
-        click.echo("  - Full task details")
-        click.echo("  - Execution logs")
-        click.echo("  - Failure messages")
-        click.echo("  - Hook output")
+    if state is None:
+        click.echo("\nNo active task execution found.")
+        click.secho("Run 'taskmaster run <task-file>' to start.", fg="cyan")
+        return
+
+    # Display basic information
+    click.echo(f"\nTask File: {state.task_file}")
+    click.echo(f"Created: {state.created_at}")
+    click.echo(f"Updated: {state.updated_at}")
+
+    # Load task list to get total count
+    try:
+        from taskmaster.task_parser import load_task_list
+
+        task_list = load_task_list(Path(state.task_file))
+        total_tasks = len(task_list.tasks)
+        completed_count = len(state.completed_task_ids)
+        pending_count = total_tasks - completed_count
+
+        click.echo(f"\nProgress: {completed_count}/{total_tasks} tasks completed")
+        click.echo(f"  Completed: {completed_count}")
+        click.echo(f"  Pending: {pending_count}")
+
+        if state.current_task_index < total_tasks:
+            current_task = task_list.tasks[state.current_task_index]
+            click.echo(f"\nCurrent/Next Task: {current_task.title} (ID: {current_task.id})")
+        else:
+            click.secho("\n✓ All tasks completed!", fg="green")
+
+        # Show failures if any
+        if state.failure_counts:
+            click.echo("\nFailure Counts:")
+            for task_id, count in state.failure_counts.items():
+                click.secho(f"  {task_id}: {count} failure(s)", fg="red")
+
+        # Verbose mode
+        if verbose:
+            click.echo("\nCompleted Tasks:")
+            for task_id in state.completed_task_ids:
+                # Find task by ID
+                task = next((t for t in task_list.tasks if t.id == task_id), None)
+                if task:
+                    click.secho(f"  ✓ {task.title} (ID: {task_id})", fg="green")
+                else:
+                    click.secho(f"  ✓ {task_id}", fg="green")
+
+            if state.last_errors:
+                click.echo("\nLast Errors:")
+                for task_id, error in state.last_errors.items():
+                    click.echo(f"  {task_id}:")
+                    click.secho(f"    {error}", fg="red")
+
+    except Exception as e:
+        click.secho(f"\n⚠ Warning: Could not load task list: {e}", fg="yellow")
+        click.echo(f"\nRaw state information:")
+        click.echo(f"  Completed task IDs: {', '.join(state.completed_task_ids)}")
+        click.echo(f"  Current task index: {state.current_task_index}")
+        if state.failure_counts:
+            click.echo(f"  Failure counts: {state.failure_counts}")
 
 
 @main.command()
@@ -176,21 +225,42 @@ def resume(ctx, force: bool, provider: Optional[str]) -> None:
     if force:
         click.secho("Force mode enabled - ignoring state warnings", fg="yellow")
 
-    if provider:
-        click.echo(f"Using provider: {provider}")
+    # Load state
+    state = load_state()
 
-    # TODO: Implement resume logic (Task 1.4 + Task 7.2)
-    # For now, show placeholder
-    click.secho(
-        "\n⚠ Resume functionality not yet implemented (coming in Task 7.2)", fg="yellow"
+    if state is None:
+        click.secho("\n✗ No saved state found", fg="red")
+        click.echo("Nothing to resume. Run 'taskmaster run <task-file>' to start a new execution.")
+        raise click.exceptions.Exit(1)
+
+    # Get task file from state
+    task_file = Path(state.task_file)
+
+    if not task_file.exists():
+        click.secho(f"\n✗ Task file not found: {task_file}", fg="red")
+        if not force:
+            click.echo("The task file from the saved state doesn't exist.")
+            click.echo("Use --force to ignore this error, or run 'taskmaster run' with a new task file.")
+            raise click.exceptions.Exit(1)
+        else:
+            click.secho("Continuing anyway due to --force flag", fg="yellow")
+
+    click.secho(f"✓ Found saved state for: {task_file}", fg="green")
+    click.echo(f"Completed: {len(state.completed_task_ids)} tasks")
+    click.echo(f"Resuming from task index: {state.current_task_index}")
+
+    # Resume execution
+    success = run_tasks(
+        task_file=task_file,
+        dry_run=False,
+        stop_on_failure=False,
+        provider=provider,
+        resume=True,
     )
-    click.echo("\nPlanned resume flow:")
-    click.echo("  1. Load saved state from .agent-runner/state.json")
-    click.echo("  2. Validate state consistency")
-    click.echo("  3. Load task list and configuration")
-    click.echo("  4. Continue from last incomplete task")
-    click.echo("  5. Preserve failure counts and metadata")
-    click.echo("\nNo saved state found.")
+
+    # Exit with appropriate code
+    if not success:
+        raise click.exceptions.Exit(1)
 
 
 @main.group()

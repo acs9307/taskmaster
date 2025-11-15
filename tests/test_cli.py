@@ -52,15 +52,22 @@ class TestRunCommand:
     def test_run_with_valid_file(self):
         """Test run command with valid file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
-            f.write("tasks: []")
+            f.write(
+                """
+tasks:
+  - id: T1
+    title: Test task
+    description: A test task
+"""
+            )
             f.flush()
             task_file = Path(f.name)
 
         try:
             result = self.runner.invoke(main, ["run", str(task_file)])
             assert result.exit_code == 0
-            assert f"Running tasks from: {task_file}" in result.output
-            assert "not yet implemented" in result.output
+            assert "Test task" in result.output
+            assert "completed successfully" in result.output
         finally:
             task_file.unlink()
 
@@ -73,21 +80,35 @@ class TestRunCommand:
     def test_run_dry_run_flag(self):
         """Test run command with --dry-run flag."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
-            f.write("tasks: []")
+            f.write(
+                """
+tasks:
+  - id: T1
+    title: Test task
+    description: A test task
+"""
+            )
             f.flush()
             task_file = Path(f.name)
 
         try:
             result = self.runner.invoke(main, ["run", str(task_file), "--dry-run"])
             assert result.exit_code == 0
-            assert "DRY RUN MODE" in result.output
+            assert "DRY RUN" in result.output
         finally:
             task_file.unlink()
 
     def test_run_stop_on_failure_flag(self):
         """Test run command with --stop-on-failure flag."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
-            f.write("tasks: []")
+            f.write(
+                """
+tasks:
+  - id: T1
+    title: Test task
+    description: A test task
+"""
+            )
             f.flush()
             task_file = Path(f.name)
 
@@ -102,7 +123,14 @@ class TestRunCommand:
     def test_run_with_provider_override(self):
         """Test run command with provider override."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
-            f.write("tasks: []")
+            f.write(
+                """
+tasks:
+  - id: T1
+    title: Test task
+    description: A test task
+"""
+            )
             f.flush()
             task_file = Path(f.name)
 
@@ -111,7 +139,8 @@ class TestRunCommand:
                 main, ["run", str(task_file), "--provider", "openai"]
             )
             assert result.exit_code == 0
-            assert "Using provider: openai" in result.output
+            # Provider override not yet used in runner, but accepted
+            assert "completed successfully" in result.output
         finally:
             task_file.unlink()
 
@@ -132,18 +161,19 @@ class TestStatusCommand:
 
     def test_status_basic(self):
         """Test basic status command."""
-        result = self.runner.invoke(main, ["status"])
-        assert result.exit_code == 0
-        assert "TaskMaster Status" in result.output
-        assert "not yet implemented" in result.output
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(main, ["status"])
+            assert result.exit_code == 0
+            assert "TaskMaster Status" in result.output
+            assert "No active task execution found" in result.output
 
     def test_status_verbose(self):
         """Test status command with verbose flag."""
-        result = self.runner.invoke(main, ["status", "--verbose"])
-        assert result.exit_code == 0
-        assert "TaskMaster Status" in result.output
-        assert "Verbose mode would show:" in result.output
-        assert "Full task details" in result.output
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(main, ["status", "--verbose"])
+            assert result.exit_code == 0
+            assert "TaskMaster Status" in result.output
+            assert "No active task execution found" in result.output
 
 
 class TestResumeCommand:
@@ -162,23 +192,30 @@ class TestResumeCommand:
         assert "--provider" in result.output
 
     def test_resume_basic(self):
-        """Test basic resume command."""
-        result = self.runner.invoke(main, ["resume"])
-        assert result.exit_code == 0
-        assert "Resuming task execution" in result.output
-        assert "not yet implemented" in result.output
+        """Test basic resume command without saved state."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(main, ["resume"])
+            # Should fail with no saved state
+            assert result.exit_code == 1
+            assert "Resuming task execution" in result.output
+            assert "No saved state found" in result.output
 
     def test_resume_force_flag(self):
         """Test resume command with --force flag."""
-        result = self.runner.invoke(main, ["resume", "--force"])
-        assert result.exit_code == 0
-        assert "Force mode enabled" in result.output
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(main, ["resume", "--force"])
+            # Should still fail with no saved state
+            assert result.exit_code == 1
+            assert "Force mode enabled" in result.output
+            assert "No saved state found" in result.output
 
     def test_resume_with_provider(self):
         """Test resume command with provider override."""
-        result = self.runner.invoke(main, ["resume", "--provider", "claude"])
-        assert result.exit_code == 0
-        assert "Using provider: claude" in result.output
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(main, ["resume", "--provider", "claude"])
+            # Should fail with no saved state
+            assert result.exit_code == 1
+            assert "No saved state found" in result.output
 
 
 class TestConfigCommand:
