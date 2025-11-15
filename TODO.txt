@@ -22,7 +22,7 @@ Goal: Set up a solid, testable CLI project with a clear architecture for agents,
 	•	Configure unit test framework.
 	•	Add linter/formatter (e.g. black/ruff, eslint, or equivalent).
 	•	Add make test, make lint, make format (or similar).
-	•	⬜ Task 0.3 — Define core domain models
+	•	✅ Task 0.3 — Define core domain models
 	•	Define data structures for:
 	•	Task (id, title, description, path, metadata).
 	•	TaskList (ordered list, dependencies).
