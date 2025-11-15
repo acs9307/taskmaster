@@ -1,0 +1,92 @@
+# TaskMaster Configuration Example (YAML)
+#
+# This file shows all available configuration options.
+# You can place this file at:
+#   - Global: ~/.taskmaster/config.yml
+#   - Project: ./.taskmaster.yml
+#
+# Project config overrides global config.
+
+# Active provider to use for agent requests
+active_provider: claude
+
+# Provider configurations
+providers:
+  # Claude (Anthropic) configuration
+  claude:
+    provider: claude
+    # API key - can be literal or environment variable reference
+    # Use $VAR_NAME syntax or set api_key_env
+    api_key: $ANTHROPIC_API_KEY
+    # Or explicitly specify env var:
+    # api_key_env: ANTHROPIC_API_KEY
+
+    # Model to use (optional)
+    model: claude-3-5-sonnet-20241022
+
+    # Base URL (optional, for custom endpoints)
+    # base_url: https://api.anthropic.com
+
+    # Rate limits (all optional, None = unlimited)
+    rate_limits:
+      max_tokens_hour: 100000
+      max_tokens_day: 500000
+      max_tokens_week: 2000000
+      max_requests_minute: 50
+
+    # Default request parameters
+    max_tokens: 4000
+    temperature: 0.7
+
+  # OpenAI configuration (alternative provider)
+  openai:
+    provider: openai
+    api_key: $OPENAI_API_KEY
+    model: gpt-4
+    rate_limits:
+      max_tokens_hour: 90000
+      max_requests_minute: 60
+    max_tokens: 4000
+    temperature: 0.7
+
+  # Codex configuration (for code-specific tasks)
+  codex:
+    provider: codex
+    api_key: $OPENAI_API_KEY
+    model: code-davinci-002
+    max_tokens: 8000
+    temperature: 0.2
+
+# Default hooks applied to all tasks (unless overridden)
+hook_defaults:
+  # Pre-task hooks (run before agent execution)
+  pre_hooks:
+    - check-env
+
+  # Post-task hooks (run after agent execution)
+  post_hooks:
+    - run-tests
+    - run-lint
+
+  # Default commands
+  test_command: pytest
+  lint_command: ruff check src tests
+  format_command: ruff format src tests
+
+# Directory for state files (task progress, rate limit tracking, etc.)
+state_dir: .agent-runner
+
+# Directory for execution logs
+log_dir: logs
+
+# Maximum number of retry attempts per task before escalating to user
+max_attempts_per_task: 3
+
+# Maximum consecutive failures before stopping and asking for user input
+max_consecutive_failures: 3
+
+# Custom metadata (optional, for your own use)
+metadata:
+  project_name: my-project
+  environment: development
+  version: "1.0.0"

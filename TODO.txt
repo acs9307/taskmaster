@@ -29,7 +29,7 @@ Goal: Set up a solid, testable CLI project with a clear architecture for agents,
 	•	Hook (pre/post commands, conditions).
 	•	AgentRequest / AgentResponse (prompt, code edits, logs).
 	•	Document them in a short ARCHITECTURE.md.
-	•	⬜ Task 0.4 — Implement configuration system
+	•	✅ Task 0.4 — Implement configuration system
 	•	Support a global config file (e.g. ~/.agent-runner/config.yml) plus per-project config.
 	•	Config includes:
 	•	Provider (claude, openai/codex, other).
