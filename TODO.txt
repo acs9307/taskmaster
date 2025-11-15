@@ -49,7 +49,7 @@ Goal: Provide a minimal CLI that can read a task list and step through tasks int
 	•	status — show current queue/progress.
 	•	resume — resume after interruption.
 	•	Add --help and top-level description.
-	•	⬜ Task 1.2 — Task list input format & parser
+	•	✅ Task 1.2 — Task list input format & parser
 	•	Support a human-editable format (YAML/JSON) for task lists, e.g.:
 
 tasks:
