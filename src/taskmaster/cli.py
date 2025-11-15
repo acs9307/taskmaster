@@ -61,6 +61,12 @@ def main(ctx):
     is_flag=True,
     help="Resume from saved state if available",
 )
+@click.option(
+    "--auto-apply",
+    "-a",
+    is_flag=True,
+    help="Automatically apply code changes from agent responses",
+)
 @click.pass_context
 def run(
     ctx,
@@ -69,6 +75,7 @@ def run(
     stop_on_failure: bool,
     provider: Optional[str],
     resume: bool,
+    auto_apply: bool,
 ) -> None:
     """
     Run tasks from a task list file.
@@ -94,6 +101,7 @@ def run(
         stop_on_failure=stop_on_failure,
         provider=provider,
         resume=resume,
+        auto_apply=auto_apply,
     )
 
     # Exit with appropriate code

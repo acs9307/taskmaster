@@ -8,6 +8,7 @@ from typing import Optional
 import click
 
 from taskmaster.agent_client import AgentClient, AgentError, CompletionRequest
+from taskmaster.change_applier import ChangeApplier
 from taskmaster.models import Task, TaskList
 from taskmaster.prompt_builder import PromptBuilder, PromptContext
 from taskmaster.state import RunState, load_state, save_state
@@ -30,6 +31,7 @@ class TaskRunner:
         agent_client: Optional[AgentClient] = None,
         provider_name: Optional[str] = None,
         log_dir: Optional[Path] = None,
+        auto_apply_changes: bool = False,
     ):
         """
         Initialize task runner.
@@ -42,6 +44,7 @@ class TaskRunner:
             agent_client: Optional AI agent client for task execution
             provider_name: Name of the provider being used
             log_dir: Directory to store agent response logs (defaults to .taskmaster/logs)
+            auto_apply_changes: If True, automatically apply code changes from agent responses
         """
         self.task_list = task_list
         self.task_file = task_file
@@ -49,6 +52,7 @@ class TaskRunner:
         self.agent_client = agent_client
         self.provider_name = provider_name
         self.log_dir = log_dir or Path(".taskmaster") / "logs"
+        self.auto_apply_changes = auto_apply_changes
         self.prompt_builder = PromptBuilder()
 
         # Initialize or use provided state
@@ -224,6 +228,17 @@ class TaskRunner:
             if response.usage:
                 click.echo(f"  Tokens: {response.usage.get('total_tokens', 'N/A')}")
 
+            # Apply changes if auto-apply is enabled
+            if self.auto_apply_changes:
+                click.secho("\n⚙  Auto-applying changes from agent response...", fg="yellow")
+                applier = ChangeApplier(dry_run=self.dry_run, working_dir=Path.cwd())
+                success_count, fail_count = applier.apply_all_changes(response.content)
+
+                if success_count > 0 or fail_count > 0:
+                    click.echo(f"\n  Applied {success_count} changes, {fail_count} failed")
+                else:
+                    click.echo("  No code changes found in response")
+
             # Mark task as completed
             task.mark_completed()
             click.secho(f"\n✓ Task completed: {task.title}", fg="green")
@@ -325,6 +340,7 @@ def run_tasks(
     stop_on_failure: bool = False,
     provider: Optional[str] = None,
     resume: bool = False,
+    auto_apply: bool = False,
 ) -> bool:
     """
     Run tasks from a task list file.
@@ -335,6 +351,7 @@ def run_tasks(
         stop_on_failure: If True, stop on first failure (currently unused)
         provider: Provider override (overrides active_provider from config)
         resume: If True, resume from saved state
+        auto_apply: If True, automatically apply code changes from agent responses
 
     Returns:
         True if execution completed successfully, False otherwise
@@ -412,6 +429,7 @@ def run_tasks(
         state=state,
         agent_client=agent_client,
         provider_name=provider_name,
+        auto_apply_changes=auto_apply,
     )
     success = runner.run()
 

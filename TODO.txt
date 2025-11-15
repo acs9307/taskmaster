@@ -117,7 +117,7 @@ Goal: For each task, construct prompts, send to agent, and capture outputs in a 
 	•	Build prompt.
 	•	Call agent.
 	•	Persist agent response (logs / suggested changes) to logs/ or .agent-runner/.
-	•	⬜ Task 3.3 — Optional auto-apply code changes
+	•	✅ Task 3.3 — Optional auto-apply code changes
 	•	(If desired) Parse agent responses that propose diffs or commands.
 	•	Apply them (e.g. via shell commands or patch files).
 	•	Provide a dry-run mode that prints changes only.
