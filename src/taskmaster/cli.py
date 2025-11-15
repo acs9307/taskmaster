@@ -10,14 +10,187 @@ from taskmaster.config_loader import load_config, validate_config_file
 
 @click.group()
 @click.version_option(version="0.1.0", prog_name="taskmaster")
-def main():
+@click.pass_context
+def main(ctx):
     """
     TaskMaster - AI-powered task orchestration and automation tool.
 
     Execute tasks using AI agents with support for hooks, dependencies,
     failure handling, and rate limiting.
+
+    \b
+    Common Commands:
+      taskmaster run <task-file>     Run tasks from a task list file
+      taskmaster status              Show current queue and progress
+      taskmaster resume              Resume interrupted task execution
+      taskmaster config validate     Validate configuration
+
+    \b
+    Examples:
+      taskmaster run tasks.yml       Execute tasks from tasks.yml
+      taskmaster run tasks.json      Execute tasks from tasks.json
+      taskmaster status              Check current task progress
+      taskmaster resume              Continue from where you left off
     """
-    pass
+    # Ensure context object exists for subcommands
+    ctx.ensure_object(dict)
+
+
+@main.command()
+@click.argument("task_file", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be executed without running tasks",
+)
+@click.option(
+    "--stop-on-failure",
+    is_flag=True,
+    help="Stop immediately on first task failure",
+)
+@click.option(
+    "--provider",
+    "-p",
+    help="Override the active provider from config",
+)
+@click.pass_context
+def run(
+    ctx, task_file: Path, dry_run: bool, stop_on_failure: bool, provider: Optional[str]
+) -> None:
+    """
+    Run tasks from a task list file.
+
+    Executes tasks sequentially from the specified YAML or JSON file.
+    Tasks are run using the configured AI agent provider with support
+    for pre/post hooks, dependency checking, and failure handling.
+
+    \b
+    TASK_FILE: Path to YAML or JSON file containing task list
+
+    \b
+    Examples:
+      taskmaster run tasks.yml
+      taskmaster run tasks.json --dry-run
+      taskmaster run tasks.yml --stop-on-failure
+      taskmaster run tasks.yml --provider openai
+    """
+    click.echo(f"Running tasks from: {task_file}")
+
+    if dry_run:
+        click.secho("DRY RUN MODE - No tasks will be executed", fg="yellow", bold=True)
+
+    if provider:
+        click.echo(f"Using provider: {provider}")
+
+    # TODO: Implement task runner (Task 1.3)
+    # For now, just acknowledge the command
+    click.secho(
+        "\n⚠ Task runner not yet implemented (coming in Task 1.3)", fg="yellow"
+    )
+    click.echo("\nPlanned execution flow:")
+    click.echo("  1. Load and parse task file")
+    click.echo("  2. Load configuration")
+    click.echo("  3. Initialize state tracking")
+    click.echo("  4. Execute tasks sequentially")
+    click.echo("  5. Run pre/post hooks")
+    click.echo("  6. Handle failures and retries")
+    click.echo("  7. Save progress state")
+
+
+@main.command()
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show detailed task information",
+)
+@click.pass_context
+def status(ctx, verbose: bool) -> None:
+    """
+    Show current task queue and progress.
+
+    Displays the status of all tasks including completed, running,
+    pending, and failed tasks. Also shows progress statistics and
+    any error messages.
+
+    \b
+    Examples:
+      taskmaster status           Show basic status
+      taskmaster status -v        Show detailed status with logs
+    """
+    click.echo("TaskMaster Status")
+    click.echo("=" * 50)
+
+    # TODO: Implement status display (Task 1.4)
+    # For now, show placeholder
+    click.secho("\n⚠ Status tracking not yet implemented (coming in Task 1.4)", fg="yellow")
+    click.echo("\nPlanned status display:")
+    click.echo("  • Total tasks: 0")
+    click.echo("  • Completed: 0")
+    click.echo("  • Pending: 0")
+    click.echo("  • Failed: 0")
+    click.echo("  • Current task: None")
+    click.echo("\nNo active task execution found.")
+
+    if verbose:
+        click.echo("\nVerbose mode would show:")
+        click.echo("  - Full task details")
+        click.echo("  - Execution logs")
+        click.echo("  - Failure messages")
+        click.echo("  - Hook output")
+
+
+@main.command()
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    help="Force resume even if state appears inconsistent",
+)
+@click.option(
+    "--provider",
+    "-p",
+    help="Override the active provider from config",
+)
+@click.pass_context
+def resume(ctx, force: bool, provider: Optional[str]) -> None:
+    """
+    Resume task execution after interruption.
+
+    Continues executing tasks from where the last run stopped.
+    This works after rate limit pauses, user interruptions (Ctrl+C),
+    failures requiring manual intervention, or system crashes.
+
+    The resume command uses the saved state file to determine which
+    task to continue from and preserves all failure counts and
+    progress information.
+
+    \b
+    Examples:
+      taskmaster resume           Resume from saved state
+      taskmaster resume --force   Resume even with inconsistent state
+      taskmaster resume -p claude Override provider for this run
+    """
+    click.echo("Resuming task execution...")
+
+    if force:
+        click.secho("Force mode enabled - ignoring state warnings", fg="yellow")
+
+    if provider:
+        click.echo(f"Using provider: {provider}")
+
+    # TODO: Implement resume logic (Task 1.4 + Task 7.2)
+    # For now, show placeholder
+    click.secho(
+        "\n⚠ Resume functionality not yet implemented (coming in Task 7.2)", fg="yellow"
+    )
+    click.echo("\nPlanned resume flow:")
+    click.echo("  1. Load saved state from .agent-runner/state.json")
+    click.echo("  2. Validate state consistency")
+    click.echo("  3. Load task list and configuration")
+    click.echo("  4. Continue from last incomplete task")
+    click.echo("  5. Preserve failure counts and metadata")
+    click.echo("\nNo saved state found.")
 
 
 @main.group()

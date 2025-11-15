@@ -43,7 +43,7 @@ Goal: Set up a solid, testable CLI project with a clear architecture for agents,
 Epic 1 — Basic CLI Skeleton
 
 Goal: Provide a minimal CLI that can read a task list and step through tasks interactively.
-	•	⬜ Task 1.1 — CLI entrypoint and subcommands
+	•	✅ Task 1.1 — CLI entrypoint and subcommands
 	•	Implement agent-runner with subcommands:
 	•	run — run tasks from a list.
 	•	status — show current queue/progress.
