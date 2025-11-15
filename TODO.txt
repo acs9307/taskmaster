@@ -87,10 +87,10 @@ Goal: Make the CLI able to talk to Claude or Codex (or future agents) via a clea
 	•	generate_completion(prompt, context).
 	•	Optional: apply_code_changes(repo_path, instructions) (if you want automated edits).
 	•	Document behavior and error types (rate limit, auth, transient, fatal).
-	•	⬜ Task 2.2 — Implement Claude client
+	•	✅ Task 2.2 — Implement Claude client
 	•	Read API key from env or config.
 	•	Implement completion call with:
-	•	System prompt (e.g. “You are a coding assistant executing task X”).
+	•	System prompt (e.g. "You are a coding assistant executing task X").
 	•	Task description and context.
 	•	Handle and surface errors in a structured way.
 	•	⬜ Task 2.3 — Implement Codex (or OpenAI) client
