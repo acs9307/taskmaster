@@ -1,0 +1,309 @@
+⸻
+
+Global Definition of Done (applies to every issue)
+
+For any task to be “done”:
+	•	✅ New behavior has automated test coverage (unit and/or integration).
+	•	✅ All tests pass locally and in CI.
+	•	✅ CLI help text (--help) remains accurate and up-to-date.
+	•	✅ Any new config options are documented in README and example.config.(yml|toml|json).
+	•	✅ No obvious regressions in existing flows (manual smoke test for: starting a run, handling a single task, graceful exit on error).
+
+⸻
+
+Epic 0 — Project Bootstrapping & Architecture
+
+Goal: Set up a solid, testable CLI project with a clear architecture for agents, tasks, hooks, and rate limits.
+	•	⬜ Task 0.1 — Choose language, framework, and repo layout
+	•	Use python programming language in a python package format that could be installed with pip.
+	•	Create basic repo structure (src/, tests/, examples/, docs/).
+	•	Add license and CONTRIBUTING file.
+	•	⬜ Task 0.2 — Set up build, lint, and test tooling
+	•	Configure unit test framework.
+	•	Add linter/formatter (e.g. black/ruff, eslint, or equivalent).
+	•	Add make test, make lint, make format (or similar).
+	•	⬜ Task 0.3 — Define core domain models
+	•	Define data structures for:
+	•	Task (id, title, description, path, metadata).
+	•	TaskList (ordered list, dependencies).
+	•	Hook (pre/post commands, conditions).
+	•	AgentRequest / AgentResponse (prompt, code edits, logs).
+	•	Document them in a short ARCHITECTURE.md.
+	•	⬜ Task 0.4 — Implement configuration system
+	•	Support a global config file (e.g. ~/.agent-runner/config.yml) plus per-project config.
+	•	Config includes:
+	•	Provider (claude, openai/codex, other).
+	•	API keys / env var names.
+	•	Rate limit settings (hourly, weekly).
+	•	Defaults for pre/post hooks and test commands.
+	•	Add agent-runner config validate command.
+
+⸻
+
+Epic 1 — Basic CLI Skeleton
+
+Goal: Provide a minimal CLI that can read a task list and step through tasks interactively.
+	•	⬜ Task 1.1 — CLI entrypoint and subcommands
+	•	Implement agent-runner with subcommands:
+	•	run — run tasks from a list.
+	•	status — show current queue/progress.
+	•	resume — resume after interruption.
+	•	Add --help and top-level description.
+	•	⬜ Task 1.2 — Task list input format & parser
+	•	Support a human-editable format (YAML/JSON) for task lists, e.g.:
+
+tasks:
+  - id: T1
+    title: Setup project skeleton
+    description: >
+      Create initial project layout, config and CI.
+    path: ./repo
+    pre_hooks: [test-env]
+    post_hooks: [unit-tests]
+
+
+	•	Validate required fields and fail with clear messages.
+
+	•	⬜ Task 1.3 — Sequential task runner (no hooks, no agent yet)
+	•	Implement basic loop:
+	•	Read task list.
+	•	Iterate tasks in order.
+	•	Mark task as started/completed.
+	•	For now, just log “Would call agent for task X”.
+	•	⬜ Task 1.4 — Progress tracking & persistence
+	•	Maintain a state file (e.g. .agent-runner/state.json) with:
+	•	Completed tasks.
+	•	Current task index.
+	•	Failure counts per task.
+	•	Ensure re-running agent-runner run continues from where it left off.
+
+⸻
+
+Epic 2 — Agent Provider Abstraction (Claude / Codex)
+
+Goal: Make the CLI able to talk to Claude or Codex (or future agents) via a clean, pluggable interface.
+	•	⬜ Task 2.1 — Define AgentClient interface
+	•	Methods like:
+	•	generate_completion(prompt, context).
+	•	Optional: apply_code_changes(repo_path, instructions) (if you want automated edits).
+	•	Document behavior and error types (rate limit, auth, transient, fatal).
+	•	⬜ Task 2.2 — Implement Claude client
+	•	Read API key from env or config.
+	•	Implement completion call with:
+	•	System prompt (e.g. “You are a coding assistant executing task X”).
+	•	Task description and context.
+	•	Handle and surface errors in a structured way.
+	•	⬜ Task 2.3 — Implement Codex (or OpenAI) client
+	•	Similar to Claude client, but for OpenAI/Codex API.
+	•	Support configurable model name.
+	•	⬜ Task 2.4 — Provider selection & config
+	•	Allow provider selection via config or CLI flag (--provider=claude).
+	•	Fail with a clear error if provider is misconfigured (missing key, invalid model).
+
+⸻
+
+Epic 3 — Task-to-Agent Pipeline
+
+Goal: For each task, construct prompts, send to agent, and capture outputs in a reproducible way.
+	•	⬜ Task 3.1 — Prompt builder
+	•	Implement a prompt template that includes:
+	•	Task title & description.
+	•	Current repo state (optional: git status, file snippets).
+	•	Pre- and post-conditions (e.g. “tests must pass: pytest”).
+	•	Allow user override/customization via template file.
+	•	⬜ Task 3.2 — Run agent for a single task
+	•	Integrate AgentClient into the task runner.
+	•	For each task:
+	•	Build prompt.
+	•	Call agent.
+	•	Persist agent response (logs / suggested changes) to logs/ or .agent-runner/.
+	•	⬜ Task 3.3 — Optional auto-apply code changes
+	•	(If desired) Parse agent responses that propose diffs or commands.
+	•	Apply them (e.g. via shell commands or patch files).
+	•	Provide a dry-run mode that prints changes only.
+
+⸻
+
+Epic 4 — Pre- and Post-Task Hooks
+
+Goal: Allow user-configurable pre- and post-task commands (tests, linters, build steps, etc).
+	•	⬜ Task 4.1 — Hook configuration model
+	•	Define hooks in config, e.g.:
+
+hooks:
+  test-env:
+    command: "poetry install"
+  unit-tests:
+    command: "pytest"
+
+
+	•	Reference hook IDs from tasks.
+
+	•	⬜ Task 4.2 — Pre-task hook runner
+	•	Before calling the agent for a task:
+	•	Run all configured pre_hooks in order.
+	•	Capture stdout/stderr and exit codes.
+	•	If a pre-hook fails:
+	•	Abort the task and ask user whether to retry, skip, or abort entire run.
+	•	⬜ Task 4.3 — Post-task hook runner
+	•	After the agent’s changes:
+	•	Run all configured post_hooks (e.g., tests, linters).
+	•	Capture results.
+	•	If post-hooks pass → mark task as completed.
+	•	If they fail → trigger fail-safe logic (Epic 5).
+	•	⬜ Task 4.4 — Hook logging
+	•	Store logs per task:
+	•	logs/TASK_ID/pre.log
+	•	logs/TASK_ID/post.log
+	•	Summarize results in CLI output.
+
+⸻
+
+Epic 5 — Fail-Safe & Failure Escalation
+
+Goal: If tests keep failing for a task, the app should stop automatically and ask for user input instead of looping forever.
+	•	⬜ Task 5.1 — Failure count & thresholds
+	•	Track per-task:
+	•	Number of post-hook failures.
+	•	Number of times agent attempted a fix.
+	•	Add config options:
+	•	max_attempts_per_task (e.g. 3).
+	•	max_consecutive_failures before escalation.
+	•	⬜ Task 5.2 — Non-progress detection
+	•	Optionally detect “no progress” by:
+	•	Comparing git diff before/after agent attempts.
+	•	If diff is empty but tests still fail → increment a non-progress counter.
+	•	Treat repeated non-progress as grounds for escalation.
+	•	⬜ Task 5.3 — Escalation to manual intervention
+	•	When thresholds are exceeded:
+	•	Stop automatic retries for that task.
+	•	Present a clear summary:
+	•	Last N test failures.
+	•	Last N agent attempts.
+	•	Prompt user:
+	•	[R]etry once more.
+	•	[S]kip this task.
+	•	[A]bort entire run.
+	•	Persist the user’s choice in state.
+	•	⬜ Task 5.4 — “Hard stop” mode
+	•	Add option --stop-on-first-failure:
+	•	Any post-hook failure stops immediately and prompts user.
+	•	Useful in high-risk repos.
+
+⸻
+
+Epic 6 — Rate Limit & Quota Handling (Hourly / Weekly)
+
+Goal: Handle agent hourly/weekly token or request limits automatically and resume when limits reset.
+	•	⬜ Task 6.1 — Rate limit configuration
+	•	Config options per provider:
+
+rate_limits:
+  claude:
+    max_tokens_hour: 100000
+    max_tokens_week: 1000000
+  openai:
+    max_requests_minute: 60
+
+
+	•	Allow user to disable or override with --ignore-config-limits (not recommended).
+
+	•	⬜ Task 6.2 — Local usage tracking
+	•	Track approximate tokens/requests per:
+	•	Hour.
+	•	Day/week (depending on provider model).
+	•	Persist counters in the state file with timestamps.
+	•	⬜ Task 6.3 — Rate-limit-aware scheduling
+	•	Before each agent call:
+	•	Check if making the call would exceed configured limits.
+	•	If yes:
+	•	Calculate time until next reset window (e.g., next hour or next week boundary).
+	•	Save state and exit with a clear message:
+	•	“Rate limit reached, safe to re-run after YYYY-MM-DD HH:MM”.
+	•	Ensure agent-runner resume picks up seamlessly and continues.
+	•	⬜ Task 6.4 — Handling 429 / provider-level limits
+	•	If API returns a rate-limit error (e.g. HTTP 429):
+	•	Respect Retry-After headers if present.
+	•	Implement exponential backoff with a max backoff window.
+	•	If repeated 429s persist past a configurable threshold → stop and log instructions for the user.
+
+⸻
+
+Epic 7 — Robust State & Resume
+
+Goal: Runs should be safely resumable after rate limits, crashes, or user aborts.
+	•	⬜ Task 7.1 — Durable run state serialization
+	•	Ensure all run-critical information is persisted:
+	•	Completed tasks.
+	•	Current task and its attempt counts.
+	•	Rate limit usage.
+	•	Last-known error per task.
+	•	Use atomic writes (temp file + rename) to avoid corruption.
+	•	⬜ Task 7.2 — Resume logic for all stopping conditions
+	•	Implement agent-runner resume that:
+	•	Resumes from last incomplete task.
+	•	Preserves failure counters.
+	•	Respects “task was skipped” flags.
+	•	Ensure behavior is consistent whether the run stopped:
+	•	Due to rate limit.
+	•	Due to fail-safe escalation.
+	•	Due to user abort (Ctrl+C).
+	•	⬜ Task 7.3 — Manual state inspection/debug command
+	•	Add agent-runner debug state to:
+	•	Print current run state.
+	•	Show per-task status and failure counts.
+	•	Helpful for diagnosing weird behavior.
+
+⸻
+
+Epic 8 — UX & Developer Ergonomics
+
+Goal: Make the tool nice to use from a terminal and easy to integrate into dev workflows.
+	•	⬜ Task 8.1 — Rich CLI output
+	•	Add:
+	•	Colorized task status (pending/running/passed/failed/skipped).
+	•	Per-task timing info.
+	•	Clear separation between tasks.
+	•	Consider a “quiet” mode for CI.
+	•	⬜ Task 8.2 — Interactive controls during run
+	•	While tasks are running, allow keyboard shortcuts:
+	•	p to pause after current task.
+	•	s to skip current task.
+	•	q to abort run.
+	•	Works even when agent or tests are taking a long time.
+	•	⬜ Task 8.3 — Dry-run / planning mode
+	•	Implement --dry-run flag:
+	•	Show which tasks would run, which hooks would execute, and estimated agent calls.
+	•	Do not actually call the agent or run hooks.
+	•	⬜ Task 8.4 — Integration examples
+	•	Provide example setups:
+	•	“Small project” example with 3 tasks and simple pytest hook.
+	•	“Monorepo” example with different hooks per task.
+
+⸻
+
+Epic 9 — Packaging, Docs, and Release
+
+Goal: Make it easy to install, configure, and understand the app.
+	•	⬜ Task 9.1 — Installation & packaging
+	•	Add packaging for:
+	•	pip / PyPI or npm / cargo as appropriate.
+	•	Document dependencies and installation steps.
+	•	⬜ Task 9.2 — Quickstart guide
+	•	Create a README section:
+	•	Install tool.
+	•	Create a tasks.yml.
+	•	Configure provider and hooks.
+	•	Run agent-runner run.
+	•	⬜ Task 9.3 — Advanced usage docs
+	•	Document:
+	•	Rate limit config.
+	•	Fail-safe behavior and override flags.
+	•	State & resume behavior.
+	•	Custom prompt templates.
+	•	⬜ Task 9.4 — Initial tagged release
+	•	Tag v0.1.0.
+	•	Publish package (if applicable).
+	•	Create release notes summarizing capabilities and limitations.
+
+⸻
