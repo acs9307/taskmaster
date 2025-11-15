@@ -18,9 +18,7 @@ class TestLoadTaskListFile:
 
     def test_load_yaml_file(self):
         """Test loading a valid YAML file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(
                 """
 tasks:
@@ -42,9 +40,7 @@ tasks:
 
     def test_load_json_file(self):
         """Test loading a valid JSON file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write(
                 """{
   "tasks": [
@@ -80,9 +76,7 @@ tasks:
 
     def test_load_unsupported_format(self):
         """Test loading a file with unsupported format."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".txt", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("tasks: []")
             f.flush()
             path = Path(f.name)
@@ -100,9 +94,7 @@ tasks:
 
     def test_load_empty_file(self):
         """Test loading an empty file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write("")
             f.flush()
             path = Path(f.name)
@@ -120,9 +112,7 @@ tasks:
 
     def test_load_invalid_yaml(self):
         """Test loading invalid YAML."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write("invalid: yaml: content: [")
             f.flush()
             path = Path(f.name)
@@ -140,9 +130,7 @@ tasks:
 
     def test_load_invalid_json(self):
         """Test loading invalid JSON."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write("{invalid json")
             f.flush()
             path = Path(f.name)
@@ -254,9 +242,7 @@ class TestValidateTaskData:
             "metadata": "invalid",
         }
         errors = validate_task_data(task_data, 0)
-        assert any(
-            "metadata" in e.lower() and "dictionary" in e.lower() for e in errors
-        )
+        assert any("metadata" in e.lower() and "dictionary" in e.lower() for e in errors)
 
     def test_invalid_pre_hooks_type(self):
         """Test validation with non-list pre_hooks."""
@@ -470,9 +456,7 @@ class TestLoadTaskList:
 
     def test_load_valid_yaml_file(self):
         """Test loading a valid YAML task list file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(
                 """
 tasks:
@@ -498,9 +482,7 @@ tasks:
 
     def test_load_valid_json_file(self):
         """Test loading a valid JSON task list file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write(
                 """{
   "tasks": [

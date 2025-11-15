@@ -341,7 +341,7 @@ class TestStateFileOperations:
             save_state(state, state_file)
 
             # Read and verify JSON is properly formatted
-            with open(state_file, "r") as f:
+            with open(state_file) as f:
                 data = json.load(f)
 
             assert "task_file" in data

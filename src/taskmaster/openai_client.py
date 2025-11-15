@@ -58,9 +58,7 @@ class OpenAIClient(AgentClient):
 
         # Check if openai is available
         if openai is None:
-            raise FatalError(
-                "openai package not installed. Run: pip install openai"
-            )
+            raise FatalError("openai package not installed. Run: pip install openai")
 
         self._openai = openai
         self.client = openai.OpenAI(api_key=self.api_key)
@@ -136,9 +134,7 @@ class OpenAIClient(AgentClient):
             # Map OpenAI errors to our error types
             raise self._map_error(e) from e
 
-    def apply_code_changes(
-        self, request: CodeChangeRequest
-    ) -> CodeChangeResponse:
+    def apply_code_changes(self, request: CodeChangeRequest) -> CodeChangeResponse:
         """
         Apply code changes via OpenAI.
 
@@ -181,9 +177,7 @@ For each change, specify:
         if request.dry_run:
             user_prompt += "\n\n(This is a dry run - propose changes but don't apply)"
 
-        completion_request = CompletionRequest(
-            prompt=user_prompt, system_prompt=system_prompt
-        )
+        completion_request = CompletionRequest(prompt=user_prompt, system_prompt=system_prompt)
 
         # Get completion from OpenAI
         response = self.generate_completion(completion_request)

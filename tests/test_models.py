@@ -1,6 +1,5 @@
 """Tests for domain models."""
 
-
 from taskmaster.models import (
     AgentRequest,
     AgentResponse,

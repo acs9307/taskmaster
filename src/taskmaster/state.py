@@ -108,9 +108,7 @@ def save_state(state: RunState, state_file: Optional[Path] = None):
 
     # Atomic write: write to temp file, then rename
     # This prevents corruption if the process is interrupted
-    fd, temp_path = tempfile.mkstemp(
-        dir=state_file.parent, prefix=".state_", suffix=".tmp"
-    )
+    fd, temp_path = tempfile.mkstemp(dir=state_file.parent, prefix=".state_", suffix=".tmp")
     try:
         with os.fdopen(fd, "w") as f:
             json.dump(state.to_dict(), f, indent=2)
@@ -143,7 +141,7 @@ def load_state(state_file: Optional[Path] = None) -> Optional[RunState]:
         return None
 
     try:
-        with open(state_file, "r") as f:
+        with open(state_file) as f:
             data = json.load(f)
         return RunState.from_dict(data)
     except (json.JSONDecodeError, OSError) as e:

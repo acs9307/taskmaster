@@ -53,7 +53,10 @@ class RateLimitError(AgentError):
     """Error raised when rate limit is exceeded."""
 
     def __init__(
-        self, message: str, retry_after: Optional[int] = None, original_error: Optional[Exception] = None
+        self,
+        message: str,
+        retry_after: Optional[int] = None,
+        original_error: Optional[Exception] = None,
     ):
         super().__init__(
             message,
@@ -76,18 +79,14 @@ class TransientError(AgentError):
     """Error raised for temporary failures."""
 
     def __init__(self, message: str, original_error: Optional[Exception] = None):
-        super().__init__(
-            message, error_type=ErrorType.TRANSIENT, original_error=original_error
-        )
+        super().__init__(message, error_type=ErrorType.TRANSIENT, original_error=original_error)
 
 
 class FatalError(AgentError):
     """Error raised for non-recoverable failures."""
 
     def __init__(self, message: str, original_error: Optional[Exception] = None):
-        super().__init__(
-            message, error_type=ErrorType.FATAL, original_error=original_error
-        )
+        super().__init__(message, error_type=ErrorType.FATAL, original_error=original_error)
 
 
 @dataclass
@@ -172,9 +171,7 @@ class AgentClient(ABC):
         pass
 
     @abstractmethod
-    def apply_code_changes(
-        self, request: CodeChangeRequest
-    ) -> CodeChangeResponse:
+    def apply_code_changes(self, request: CodeChangeRequest) -> CodeChangeResponse:
         """
         Apply code changes via the AI agent.
 

@@ -7,7 +7,7 @@ import click
 
 from taskmaster.config_loader import load_config, validate_config_file
 from taskmaster.runner import run_tasks
-from taskmaster.state import clear_state, load_state
+from taskmaster.state import load_state
 
 
 @click.group()
@@ -182,7 +182,7 @@ def status(ctx, verbose: bool) -> None:
 
     except Exception as e:
         click.secho(f"\n⚠ Warning: Could not load task list: {e}", fg="yellow")
-        click.echo(f"\nRaw state information:")
+        click.echo("\nRaw state information:")
         click.echo(f"  Completed task IDs: {', '.join(state.completed_task_ids)}")
         click.echo(f"  Current task index: {state.current_task_index}")
         if state.failure_counts:
@@ -240,7 +240,9 @@ def resume(ctx, force: bool, provider: Optional[str]) -> None:
         click.secho(f"\n✗ Task file not found: {task_file}", fg="red")
         if not force:
             click.echo("The task file from the saved state doesn't exist.")
-            click.echo("Use --force to ignore this error, or run 'taskmaster run' with a new task file.")
+            click.echo(
+                "Use --force to ignore this error, or run 'taskmaster run' with a new task file."
+            )
             raise click.exceptions.Exit(1)
         else:
             click.secho("Continuing anyway due to --force flag", fg="yellow")
@@ -282,9 +284,7 @@ def config():
     type=click.Path(exists=True, path_type=Path),
     help="Path to project config file (default: ./.taskmaster.yml)",
 )
-def validate_config(
-    global_config: Optional[Path], project_config: Optional[Path]
-) -> None:
+def validate_config(global_config: Optional[Path], project_config: Optional[Path]) -> None:
     """
     Validate configuration files.
 
@@ -390,9 +390,7 @@ def show_config(global_config: Optional[Path], project_config: Optional[Path]) -
         click.echo(f"State Directory: {merged_config.state_dir}")
         click.echo(f"Log Directory: {merged_config.log_dir}")
         click.echo(f"Max Attempts Per Task: {merged_config.max_attempts_per_task}")
-        click.echo(
-            f"Max Consecutive Failures: {merged_config.max_consecutive_failures}"
-        )
+        click.echo(f"Max Consecutive Failures: {merged_config.max_consecutive_failures}")
 
         click.echo("\nConfigured Providers:")
         for name, provider_cfg in merged_config.provider_configs.items():
@@ -408,13 +406,9 @@ def show_config(global_config: Optional[Path], project_config: Optional[Path]) -
                 click.echo(f"      API Key: {masked}")
 
         if merged_config.hook_defaults.test_command:
-            click.echo(
-                f"\nDefault Test Command: {merged_config.hook_defaults.test_command}"
-            )
+            click.echo(f"\nDefault Test Command: {merged_config.hook_defaults.test_command}")
         if merged_config.hook_defaults.lint_command:
-            click.echo(
-                f"Default Lint Command: {merged_config.hook_defaults.lint_command}"
-            )
+            click.echo(f"Default Lint Command: {merged_config.hook_defaults.lint_command}")
 
     except Exception as e:
         click.secho(f"Error loading configuration: {e}", fg="red")

@@ -177,9 +177,7 @@ class TestRunTasks:
 
     def test_run_tasks_valid_yaml(self):
         """Test running tasks from valid YAML file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(
                 """
 tasks:
@@ -192,16 +190,14 @@ tasks:
             path = Path(f.name)
 
         try:
-            success = run_tasks(path)
+            success = run_tasks(path, dry_run=True)
             assert success is True
         finally:
             path.unlink()
 
     def test_run_tasks_valid_json(self):
         """Test running tasks from valid JSON file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write(
                 """{
   "tasks": [
@@ -217,16 +213,14 @@ tasks:
             path = Path(f.name)
 
         try:
-            success = run_tasks(path)
+            success = run_tasks(path, dry_run=True)
             assert success is True
         finally:
             path.unlink()
 
     def test_run_tasks_multiple_tasks(self):
         """Test running multiple tasks from file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(
                 """
 tasks:
@@ -245,16 +239,14 @@ tasks:
             path = Path(f.name)
 
         try:
-            success = run_tasks(path)
+            success = run_tasks(path, dry_run=True)
             assert success is True
         finally:
             path.unlink()
 
     def test_run_tasks_dry_run(self):
         """Test running tasks in dry run mode."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(
                 """
 tasks:
@@ -280,9 +272,7 @@ tasks:
 
     def test_run_tasks_invalid_yaml(self):
         """Test running tasks with invalid YAML."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write("invalid: yaml: [")
             f.flush()
             path = Path(f.name)
@@ -303,9 +293,7 @@ class TestRunCommandIntegration:
 
     def test_run_command_with_valid_task_file(self):
         """Test run command with valid task file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(
                 """
 tasks:
@@ -318,7 +306,7 @@ tasks:
             path = Path(f.name)
 
         try:
-            result = self.runner.invoke(main, ["run", str(path)])
+            result = self.runner.invoke(main, ["run", str(path), "--dry-run"])
             assert result.exit_code == 0
             assert "Test task" in result.output
             assert "completed successfully" in result.output
@@ -327,9 +315,7 @@ tasks:
 
     def test_run_command_dry_run(self):
         """Test run command with dry run flag."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(
                 """
 tasks:
@@ -350,9 +336,7 @@ tasks:
 
     def test_run_command_multiple_tasks(self):
         """Test run command with multiple tasks."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(
                 """
 tasks:
@@ -368,7 +352,7 @@ tasks:
             path = Path(f.name)
 
         try:
-            result = self.runner.invoke(main, ["run", str(path)])
+            result = self.runner.invoke(main, ["run", str(path), "--dry-run"])
             assert result.exit_code == 0
             assert "First task" in result.output
             assert "Second task" in result.output
@@ -381,7 +365,7 @@ tasks:
         """Test run command with example task file."""
         example_path = Path("examples/tasks.minimal.yml")
         if example_path.exists():
-            result = self.runner.invoke(main, ["run", str(example_path)])
+            result = self.runner.invoke(main, ["run", str(example_path), "--dry-run"])
             assert result.exit_code == 0
             assert "completed successfully" in result.output
 

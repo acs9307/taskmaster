@@ -96,7 +96,7 @@ Goal: Make the CLI able to talk to Claude or Codex (or future agents) via a clea
 	•	✅ Task 2.3 — Implement Codex (or OpenAI) client
 	•	Similar to Claude client, but for OpenAI/Codex API.
 	•	Support configurable model name.
-	•	⬜ Task 2.4 — Provider selection & config
+	•	✅ Task 2.4 — Provider selection & config
 	•	Allow provider selection via config or CLI flag (--provider=claude).
 	•	Fail with a clear error if provider is misconfigured (missing key, invalid model).
 

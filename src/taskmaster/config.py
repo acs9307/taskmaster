@@ -140,9 +140,7 @@ class Config:
 
         # Check if active provider exists
         if self.active_provider not in self.provider_configs:
-            errors.append(
-                f"Active provider '{self.active_provider}' not found in provider_configs"
-            )
+            errors.append(f"Active provider '{self.active_provider}' not found in provider_configs")
 
         # Validate each provider config
         for name, provider_config in self.provider_configs.items():
@@ -162,17 +160,12 @@ class Config:
                 errors.append(f"Provider '{name}': max_tokens_day must be >= 0")
             if rate_limits.max_tokens_week is not None and rate_limits.max_tokens_week < 0:
                 errors.append(f"Provider '{name}': max_tokens_week must be >= 0")
-            if (
-                rate_limits.max_requests_minute is not None
-                and rate_limits.max_requests_minute < 0
-            ):
+            if rate_limits.max_requests_minute is not None and rate_limits.max_requests_minute < 0:
                 errors.append(f"Provider '{name}': max_requests_minute must be >= 0")
 
             # Validate temperature
             if not 0.0 <= provider_config.temperature <= 2.0:
-                errors.append(
-                    f"Provider '{name}': temperature must be between 0.0 and 2.0"
-                )
+                errors.append(f"Provider '{name}': temperature must be between 0.0 and 2.0")
 
         # Validate paths
         if not self.state_dir:

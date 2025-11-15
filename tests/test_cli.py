@@ -64,7 +64,7 @@ tasks:
             task_file = Path(f.name)
 
         try:
-            result = self.runner.invoke(main, ["run", str(task_file)])
+            result = self.runner.invoke(main, ["run", str(task_file), "--dry-run"])
             assert result.exit_code == 0
             assert "Test task" in result.output
             assert "completed successfully" in result.output
@@ -114,7 +114,7 @@ tasks:
 
         try:
             result = self.runner.invoke(
-                main, ["run", str(task_file), "--stop-on-failure"]
+                main, ["run", str(task_file), "--stop-on-failure", "--dry-run"]
             )
             assert result.exit_code == 0
         finally:
@@ -136,10 +136,10 @@ tasks:
 
         try:
             result = self.runner.invoke(
-                main, ["run", str(task_file), "--provider", "openai"]
+                main, ["run", str(task_file), "--provider", "openai", "--dry-run"]
             )
             assert result.exit_code == 0
-            # Provider override not yet used in runner, but accepted
+            # Provider override is accepted and used
             assert "completed successfully" in result.output
         finally:
             task_file.unlink()

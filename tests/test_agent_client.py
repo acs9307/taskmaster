@@ -255,9 +255,7 @@ class TestCodeChangeRequest:
 
     def test_basic_request(self):
         """Test creating a basic code change request."""
-        request = CodeChangeRequest(
-            repo_path="/path/to/repo", instructions="Fix the bug"
-        )
+        request = CodeChangeRequest(repo_path="/path/to/repo", instructions="Fix the bug")
         assert request.repo_path == "/path/to/repo"
         assert request.instructions == "Fix the bug"
         assert request.context == {}
@@ -284,9 +282,7 @@ class TestCodeChangeResponse:
             CodeChange("file1.py", "create", "content1"),
             CodeChange("file2.py", "modify", "content2"),
         ]
-        response = CodeChangeResponse(
-            changes=changes, explanation="Made two changes"
-        )
+        response = CodeChangeResponse(changes=changes, explanation="Made two changes")
         assert len(response.changes) == 2
         assert response.explanation == "Made two changes"
         assert response.metadata == {}
@@ -321,9 +317,7 @@ class MockAgentClient(AgentClient):
             usage={"total_tokens": 100},
         )
 
-    def apply_code_changes(
-        self, request: CodeChangeRequest
-    ) -> CodeChangeResponse:
+    def apply_code_changes(self, request: CodeChangeRequest) -> CodeChangeResponse:
         """Mock code change application."""
         if self._should_fail:
             raise self._fail_with
@@ -466,6 +460,4 @@ class TestAgentClient:
         client._fail_with = RateLimitError("Rate limited")
 
         with pytest.raises(RateLimitError):
-            client.apply_code_changes(
-                CodeChangeRequest(repo_path="/repo", instructions="Fix")
-            )
+            client.apply_code_changes(CodeChangeRequest(repo_path="/repo", instructions="Fix"))

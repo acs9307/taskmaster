@@ -139,7 +139,7 @@ class TestClaudeClientCompletion:
         request = CompletionRequest(
             prompt="Hello", system_prompt="You are a helpful assistant"
         )
-        response = client.generate_completion(request)
+        client.generate_completion(request)
 
         # Verify system prompt was passed
         call_kwargs = mock_client.messages.create.call_args[1]
@@ -168,7 +168,7 @@ class TestClaudeClientCompletion:
             temperature=0.7,
             stop_sequences=["STOP"],
         )
-        response = client.generate_completion(request)
+        client.generate_completion(request)
 
         # Verify parameters were passed
         call_kwargs = mock_client.messages.create.call_args[1]
@@ -420,7 +420,7 @@ class TestClaudeClientCodeChanges:
         request = CodeChangeRequest(
             repo_path="/repo", instructions="Add feature", dry_run=True
         )
-        response = client.apply_code_changes(request)
+        client.apply_code_changes(request)
 
         # Verify dry run was mentioned in prompt
         call_kwargs = mock_client.messages.create.call_args[1]

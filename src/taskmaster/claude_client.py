@@ -58,9 +58,7 @@ class ClaudeClient(AgentClient):
 
         # Check if anthropic is available
         if anthropic is None:
-            raise FatalError(
-                "anthropic package not installed. Run: pip install anthropic"
-            )
+            raise FatalError("anthropic package not installed. Run: pip install anthropic")
 
         self._anthropic = anthropic
         self.client = anthropic.Anthropic(api_key=self.api_key)
@@ -136,9 +134,7 @@ class ClaudeClient(AgentClient):
             # Map anthropic errors to our error types
             raise self._map_error(e) from e
 
-    def apply_code_changes(
-        self, request: CodeChangeRequest
-    ) -> CodeChangeResponse:
+    def apply_code_changes(self, request: CodeChangeRequest) -> CodeChangeResponse:
         """
         Apply code changes via Claude.
 
@@ -181,9 +177,7 @@ For each change, specify:
         if request.dry_run:
             user_prompt += "\n\n(This is a dry run - propose changes but don't apply)"
 
-        completion_request = CompletionRequest(
-            prompt=user_prompt, system_prompt=system_prompt
-        )
+        completion_request = CompletionRequest(prompt=user_prompt, system_prompt=system_prompt)
 
         # Get completion from Claude
         response = self.generate_completion(completion_request)

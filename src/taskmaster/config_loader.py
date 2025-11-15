@@ -231,9 +231,7 @@ def merge_configs(base: Config, override: Config) -> Config:
         ),
         test_command=override.hook_defaults.test_command or base.hook_defaults.test_command,
         lint_command=override.hook_defaults.lint_command or base.hook_defaults.lint_command,
-        format_command=(
-            override.hook_defaults.format_command or base.hook_defaults.format_command
-        ),
+        format_command=(override.hook_defaults.format_command or base.hook_defaults.format_command),
     )
 
     # Merge metadata

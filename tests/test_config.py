@@ -73,17 +73,13 @@ class TestProviderConfig:
     def test_get_api_key_from_api_key_env(self):
         """Test getting API key from api_key_env field."""
         os.environ["TEST_API_KEY_2"] = "env-key-value-2"
-        config = ProviderConfig(
-            provider=Provider.CLAUDE, api_key_env="TEST_API_KEY_2"
-        )
+        config = ProviderConfig(provider=Provider.CLAUDE, api_key_env="TEST_API_KEY_2")
         assert config.get_api_key() == "env-key-value-2"
         del os.environ["TEST_API_KEY_2"]
 
     def test_get_api_key_missing_env_var(self):
         """Test getting API key when env var doesn't exist."""
-        config = ProviderConfig(
-            provider=Provider.CLAUDE, api_key="$NONEXISTENT_KEY"
-        )
+        config = ProviderConfig(provider=Provider.CLAUDE, api_key="$NONEXISTENT_KEY")
         assert config.get_api_key() is None
 
     def test_get_api_key_none(self):
@@ -131,9 +127,7 @@ class TestConfig:
     def test_get_active_provider_config(self):
         """Test getting active provider config."""
         provider_config = ProviderConfig(provider=Provider.CLAUDE, api_key="test")
-        config = Config(
-            provider_configs={"claude": provider_config}, active_provider="claude"
-        )
+        config = Config(provider_configs={"claude": provider_config}, active_provider="claude")
         assert config.get_active_provider_config() == provider_config
 
     def test_get_active_provider_config_missing(self):
@@ -144,12 +138,8 @@ class TestConfig:
     def test_validate_success(self):
         """Test validation with valid config."""
         os.environ["TEST_KEY"] = "test-value"
-        provider_config = ProviderConfig(
-            provider=Provider.CLAUDE, api_key="$TEST_KEY"
-        )
-        config = Config(
-            provider_configs={"claude": provider_config}, active_provider="claude"
-        )
+        provider_config = ProviderConfig(provider=Provider.CLAUDE, api_key="$TEST_KEY")
+        config = Config(provider_configs={"claude": provider_config}, active_provider="claude")
         errors = config.validate()
         assert len(errors) == 0
         del os.environ["TEST_KEY"]
@@ -163,9 +153,7 @@ class TestConfig:
     def test_validate_missing_api_key(self):
         """Test validation with missing API key."""
         provider_config = ProviderConfig(provider=Provider.CLAUDE)
-        config = Config(
-            provider_configs={"claude": provider_config}, active_provider="claude"
-        )
+        config = Config(provider_configs={"claude": provider_config}, active_provider="claude")
         errors = config.validate()
         assert any("No API key configured" in e for e in errors)
 
@@ -175,9 +163,7 @@ class TestConfig:
         provider_config = ProviderConfig(
             provider=Provider.CLAUDE, api_key="$TEST_KEY", temperature=3.0
         )
-        config = Config(
-            provider_configs={"claude": provider_config}, active_provider="claude"
-        )
+        config = Config(provider_configs={"claude": provider_config}, active_provider="claude")
         errors = config.validate()
         assert any("temperature must be between" in e for e in errors)
         del os.environ["TEST_KEY"]
@@ -189,9 +175,7 @@ class TestConfig:
         provider_config = ProviderConfig(
             provider=Provider.CLAUDE, api_key="$TEST_KEY", rate_limits=rate_limits
         )
-        config = Config(
-            provider_configs={"claude": provider_config}, active_provider="claude"
-        )
+        config = Config(provider_configs={"claude": provider_config}, active_provider="claude")
         errors = config.validate()
         assert any("max_tokens_hour must be >= 0" in e for e in errors)
         del os.environ["TEST_KEY"]
@@ -208,9 +192,7 @@ class TestConfigLoader:
 
     def test_load_yaml_file(self):
         """Test loading YAML configuration."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(
                 """
 active_provider: claude
@@ -232,9 +214,7 @@ providers:
 
     def test_load_json_file(self):
         """Test loading JSON configuration."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write(
                 """{
   "active_provider": "openai",
@@ -264,9 +244,7 @@ providers:
 
     def test_load_invalid_yaml(self):
         """Test loading invalid YAML raises error."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write("invalid: yaml: content: [")
             f.flush()
             path = Path(f.name)
@@ -323,9 +301,7 @@ providers:
 
         override = Config(
             provider_configs={
-                "openai": ProviderConfig(
-                    provider=Provider.OPENAI, api_key="override-key"
-                )
+                "openai": ProviderConfig(provider=Provider.OPENAI, api_key="override-key")
             },
             active_provider="openai",
             max_attempts_per_task=5,
@@ -367,9 +343,7 @@ providers:
 
     def test_validate_config_file(self):
         """Test validating a config file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(
                 """
 active_provider: claude
@@ -391,9 +365,7 @@ providers:
 
     def test_validate_config_file_with_errors(self):
         """Test validating a config file with errors."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(
                 """
 active_provider: nonexistent

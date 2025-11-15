@@ -81,8 +81,7 @@ def validate_task_data(task_data: dict[str, Any], index: int) -> list[str]:
         errors.append(f"Task at index {index}: Missing required field 'id'")
     elif not isinstance(task_data["id"], str):
         errors.append(
-            f"Task '{task_id}': Field 'id' must be a string, "
-            f"got {type(task_data['id']).__name__}"
+            f"Task '{task_id}': Field 'id' must be a string, got {type(task_data['id']).__name__}"
         )
     elif not task_data["id"].strip():
         errors.append(f"Task at index {index}: Field 'id' cannot be empty")
@@ -125,9 +124,7 @@ def validate_task_data(task_data: dict[str, Any], index: int) -> list[str]:
                 f"got {type(task_data['pre_hooks']).__name__}"
             )
         elif not all(isinstance(h, str) for h in task_data["pre_hooks"]):
-            errors.append(
-                f"Task '{task_id}': All items in 'pre_hooks' must be strings"
-            )
+            errors.append(f"Task '{task_id}': All items in 'pre_hooks' must be strings")
 
     if "post_hooks" in task_data:
         if not isinstance(task_data["post_hooks"], list):
@@ -136,9 +133,7 @@ def validate_task_data(task_data: dict[str, Any], index: int) -> list[str]:
                 f"got {type(task_data['post_hooks']).__name__}"
             )
         elif not all(isinstance(h, str) for h in task_data["post_hooks"]):
-            errors.append(
-                f"Task '{task_id}': All items in 'post_hooks' must be strings"
-            )
+            errors.append(f"Task '{task_id}': All items in 'post_hooks' must be strings")
 
     return errors
 
@@ -185,9 +180,7 @@ def parse_task_list(data: dict[str, Any]) -> TaskList:
 
     tasks_data = data["tasks"]
     if not isinstance(tasks_data, list):
-        raise TaskListParseError(
-            f"Field 'tasks' must be a list, got {type(tasks_data).__name__}"
-        )
+        raise TaskListParseError(f"Field 'tasks' must be a list, got {type(tasks_data).__name__}")
 
     if len(tasks_data) == 0:
         raise TaskListParseError("Task list cannot be empty")
@@ -197,8 +190,7 @@ def parse_task_list(data: dict[str, Any]) -> TaskList:
     for i, task_data in enumerate(tasks_data):
         if not isinstance(task_data, dict):
             all_errors.append(
-                f"Task at index {i} must be a dictionary, "
-                f"got {type(task_data).__name__}"
+                f"Task at index {i} must be a dictionary, got {type(task_data).__name__}"
             )
             continue
 
@@ -207,9 +199,7 @@ def parse_task_list(data: dict[str, Any]) -> TaskList:
 
     # If there are validation errors, raise with all messages
     if all_errors:
-        error_msg = "Task list validation failed:\n" + "\n".join(
-            f"  - {err}" for err in all_errors
-        )
+        error_msg = "Task list validation failed:\n" + "\n".join(f"  - {err}" for err in all_errors)
         raise TaskListParseError(error_msg)
 
     # Check for duplicate task IDs
@@ -217,9 +207,7 @@ def parse_task_list(data: dict[str, Any]) -> TaskList:
     duplicates = [tid for tid in task_ids if task_ids.count(tid) > 1]
     if duplicates:
         unique_duplicates = sorted(set(duplicates))
-        raise TaskListParseError(
-            f"Duplicate task IDs found: {', '.join(unique_duplicates)}"
-        )
+        raise TaskListParseError(f"Duplicate task IDs found: {', '.join(unique_duplicates)}")
 
     # Parse tasks
     task_list = TaskList()
@@ -232,21 +220,17 @@ def parse_task_list(data: dict[str, Any]) -> TaskList:
     if dependencies:
         if not isinstance(dependencies, dict):
             raise TaskListParseError(
-                f"Field 'dependencies' must be a dictionary, "
-                f"got {type(dependencies).__name__}"
+                f"Field 'dependencies' must be a dictionary, got {type(dependencies).__name__}"
             )
 
         # Validate dependencies
         for task_id, deps in dependencies.items():
             if task_id not in task_ids:
-                raise TaskListParseError(
-                    f"Dependency references unknown task ID: {task_id}"
-                )
+                raise TaskListParseError(f"Dependency references unknown task ID: {task_id}")
 
             if not isinstance(deps, list):
                 raise TaskListParseError(
-                    f"Dependencies for task '{task_id}' must be a list, "
-                    f"got {type(deps).__name__}"
+                    f"Dependencies for task '{task_id}' must be a list, got {type(deps).__name__}"
                 )
 
             for dep_id in deps:
@@ -255,9 +239,7 @@ def parse_task_list(data: dict[str, Any]) -> TaskList:
                         f"Dependency IDs must be strings, got {type(dep_id).__name__}"
                     )
                 if dep_id not in task_ids:
-                    raise TaskListParseError(
-                        f"Task '{task_id}' depends on unknown task: {dep_id}"
-                    )
+                    raise TaskListParseError(f"Task '{task_id}' depends on unknown task: {dep_id}")
 
         # Apply dependencies
         task_list.dependencies = dependencies

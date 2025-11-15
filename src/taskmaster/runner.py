@@ -5,6 +5,7 @@ from typing import Optional
 
 import click
 
+from taskmaster.agent_client import AgentClient
 from taskmaster.models import TaskList
 from taskmaster.state import RunState, load_state, save_state
 from taskmaster.task_parser import load_task_list
@@ -23,6 +24,8 @@ class TaskRunner:
         task_file: Path,
         dry_run: bool = False,
         state: Optional[RunState] = None,
+        agent_client: Optional[AgentClient] = None,
+        provider_name: Optional[str] = None,
     ):
         """
         Initialize task runner.
@@ -32,10 +35,14 @@ class TaskRunner:
             task_file: Path to task list file (for state tracking)
             dry_run: If True, don't actually execute tasks
             state: Optional existing state to resume from
+            agent_client: Optional AI agent client for task execution
+            provider_name: Name of the provider being used
         """
         self.task_list = task_list
         self.task_file = task_file
         self.dry_run = dry_run
+        self.agent_client = agent_client
+        self.provider_name = provider_name
 
         # Initialize or use provided state
         if state is None:
@@ -56,6 +63,13 @@ class TaskRunner:
 
         total_tasks = len(self.task_list.tasks)
         click.echo(f"\nTotal tasks: {total_tasks}")
+
+        # Show provider information if available
+        if self.provider_name:
+            click.echo(f"Provider: {self.provider_name}")
+            if self.agent_client:
+                model = self.agent_client.get_model_name()
+                click.echo(f"Model: {model}")
 
         # Check if we're resuming
         if self.state.current_task_index > 0:
@@ -195,7 +209,7 @@ def run_tasks(
         task_file: Path to task list file (YAML or JSON)
         dry_run: If True, preview execution without running
         stop_on_failure: If True, stop on first failure (currently unused)
-        provider: Provider override (currently unused)
+        provider: Provider override (overrides active_provider from config)
         resume: If True, resume from saved state
 
     Returns:
@@ -209,6 +223,41 @@ def run_tasks(
     except Exception as e:
         click.secho(f"✗ Failed to load task list: {e}", fg="red")
         return False
+
+    # Load configuration and create agent client (unless dry run)
+    agent_client = None
+    provider_name = None
+
+    if not dry_run:
+        try:
+            from taskmaster.config_loader import load_config
+            from taskmaster.provider_factory import ProviderError, get_agent_client
+
+            # Load configuration
+            config = load_config()
+
+            # Validate configuration
+            validation_errors = config.validate()
+            if validation_errors:
+                click.secho("✗ Configuration validation failed:", fg="red")
+                for error in validation_errors:
+                    click.secho(f"  - {error}", fg="red")
+                return False
+
+            # Get agent client for the specified provider
+            try:
+                provider_name, agent_client = get_agent_client(config, provider)
+                click.secho(f"✓ Initialized provider: {provider_name}", fg="green")
+            except ProviderError as e:
+                click.secho(f"✗ Provider configuration error: {e}", fg="red")
+                return False
+
+        except Exception as e:
+            click.secho(f"✗ Failed to load configuration: {e}", fg="red")
+            click.echo(
+                "\nHint: Create a configuration file at ~/.taskmaster/config.yml or ./.taskmaster.yml"
+            )
+            return False
 
     # Load or create state
     state = None
@@ -232,7 +281,14 @@ def run_tasks(
             click.secho(f"⚠ Warning: Failed to load state: {e}", fg="yellow")
 
     # Create and run task runner
-    runner = TaskRunner(task_list, task_file, dry_run=dry_run, state=state)
+    runner = TaskRunner(
+        task_list,
+        task_file,
+        dry_run=dry_run,
+        state=state,
+        agent_client=agent_client,
+        provider_name=provider_name,
+    )
     success = runner.run()
 
     # Display summary
@@ -241,7 +297,7 @@ def run_tasks(
     click.echo(f"  Total tasks: {summary['total']}")
     click.secho(f"  Completed: {summary['completed']}", fg="green")
     click.echo(f"  Pending: {summary['pending']}")
-    if summary['failed'] > 0:
+    if summary["failed"] > 0:
         click.secho(f"  Failed: {summary['failed']}", fg="red")
 
     return success
