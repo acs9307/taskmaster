@@ -349,9 +349,49 @@ class TaskRunner:
                 system_prompt=prompt_components.system_prompt,
             )
 
+            # Check rate limits before calling agent (unless limits are disabled)
+            if not self.ignore_config_limits and self.config and self.provider_name:
+                provider_config = self.config.get_active_provider_config()
+                if provider_config and provider_config.rate_limits:
+                    # Estimate tokens (rough estimate based on prompt length)
+                    estimated_tokens = len(request.prompt) // 4 + 1000
+
+                    can_proceed, limit_type, next_reset = self.state.check_rate_limit(
+                        self.provider_name, estimated_tokens, provider_config.rate_limits
+                    )
+
+                    if not can_proceed:
+                        # Rate limit would be exceeded - save state and exit gracefully
+                        from taskmaster.state import save_state
+
+                        save_state(self.state)
+
+                        # Format next reset time
+                        reset_str = next_reset.strftime("%Y-%m-%d %H:%M UTC")
+
+                        click.echo()
+                        click.secho("⚠ RATE LIMIT REACHED", fg="yellow", bold=True)
+                        click.echo("=" * 60)
+                        click.echo(f"Limit type: {limit_type}")
+                        click.echo(f"Provider: {self.provider_name}")
+                        click.echo(f"Safe to re-run after: {reset_str}")
+                        click.echo()
+                        click.echo("State has been saved. You can resume by running:")
+                        click.secho("  taskmaster run <task-file> --resume", fg="cyan")
+                        click.echo("=" * 60)
+
+                        # Exit gracefully - the run will fail but state is saved
+                        return False
+
             # Call agent
             click.secho(f"⚙  Calling agent ({self.provider_name})...", fg="yellow")
             response = self.agent_client.generate_completion(request)
+
+            # Record usage after successful call
+            if self.provider_name and response:
+                # Estimate tokens used (rough estimate)
+                tokens_used = len(request.prompt) // 4 + len(response.content) // 4
+                self.state.record_usage(self.provider_name, tokens=tokens_used, requests=1)
 
             # Save response to log file
             self._save_response_log(task, prompt_components, response)

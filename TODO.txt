@@ -214,13 +214,13 @@ rate_limits:
 	•	Hour.
 	•	Day/week (depending on provider model).
 	•	Persist counters in the state file with timestamps.
-	•	⬜ Task 6.3 — Rate-limit-aware scheduling
+	•	✅ Task 6.3 — Rate-limit-aware scheduling
 	•	Before each agent call:
 	•	Check if making the call would exceed configured limits.
 	•	If yes:
 	•	Calculate time until next reset window (e.g., next hour or next week boundary).
 	•	Save state and exit with a clear message:
-	•	“Rate limit reached, safe to re-run after YYYY-MM-DD HH:MM”.
+	•	"Rate limit reached, safe to re-run after YYYY-MM-DD HH:MM".
 	•	Ensure agent-runner resume picks up seamlessly and continues.
 	•	⬜ Task 6.4 — Handling 429 / provider-level limits
 	•	If API returns a rate-limit error (e.g. HTTP 429):

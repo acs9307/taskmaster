@@ -2,17 +2,86 @@
 
 import json
 import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 
+from taskmaster.config import RateLimitConfig
 from taskmaster.state import (
     RunState,
+    calculate_next_reset,
     clear_state,
     get_state_file_path,
     load_state,
     save_state,
 )
+
+
+class TestCalculateNextReset:
+    """Tests for calculate_next_reset utility function."""
+
+    def test_next_minute_reset(self):
+        """Test calculating next minute boundary."""
+        next_reset = calculate_next_reset("minute")
+        now = datetime.utcnow()
+
+        # Should be in the future
+        assert next_reset > now
+        # Should be at second 0
+        assert next_reset.second == 0
+        assert next_reset.microsecond == 0
+        # Should be within 60 seconds
+        assert (next_reset - now).total_seconds() <= 60
+
+    def test_next_hour_reset(self):
+        """Test calculating next hour boundary."""
+        next_reset = calculate_next_reset("hour")
+        now = datetime.utcnow()
+
+        # Should be in the future
+        assert next_reset > now
+        # Should be at minute 0, second 0
+        assert next_reset.minute == 0
+        assert next_reset.second == 0
+        assert next_reset.microsecond == 0
+        # Should be within 1 hour
+        assert (next_reset - now).total_seconds() <= 3600
+
+    def test_next_day_reset(self):
+        """Test calculating next day boundary."""
+        next_reset = calculate_next_reset("day")
+        now = datetime.utcnow()
+
+        # Should be in the future
+        assert next_reset > now
+        # Should be at midnight (hour 0, minute 0, second 0)
+        assert next_reset.hour == 0
+        assert next_reset.minute == 0
+        assert next_reset.second == 0
+        assert next_reset.microsecond == 0
+        # Should be within 24 hours
+        assert (next_reset - now).total_seconds() <= 86400
+
+    def test_next_week_reset(self):
+        """Test calculating next week boundary."""
+        next_reset = calculate_next_reset("week")
+        now = datetime.utcnow()
+
+        # Should be in the future
+        assert next_reset > now
+        # Should be at Monday midnight
+        assert next_reset.weekday() == 0  # Monday
+        assert next_reset.hour == 0
+        assert next_reset.minute == 0
+        assert next_reset.second == 0
+        # Should be within 7 days
+        assert (next_reset - now).total_seconds() <= 7 * 86400
+
+    def test_invalid_window_type(self):
+        """Test that invalid window type raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown window type"):
+            calculate_next_reset("invalid")
 
 
 class TestRunState:
@@ -372,7 +441,7 @@ class TestRunState:
 
     def test_get_usage_for_window_time_filtering(self):
         """Test that usage filtering by time window works."""
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         state = RunState(task_file="tasks.yml")
 
@@ -431,7 +500,7 @@ class TestRunState:
 
     def test_cleanup_old_usage_records(self):
         """Test cleaning up old usage records."""
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         state = RunState(task_file="tasks.yml")
 
@@ -464,7 +533,7 @@ class TestRunState:
 
     def test_cleanup_old_usage_records_custom_days(self):
         """Test cleaning up old records with custom retention period."""
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         state = RunState(task_file="tasks.yml")
 
@@ -503,6 +572,146 @@ class TestRunState:
         assert len(restored_state.usage_records) == 2
         assert restored_state.usage_records[0]["provider"] == "claude"
         assert restored_state.usage_records[0]["tokens"] == 1000
+
+    def test_check_rate_limit_no_limits(self):
+        """Test check_rate_limit when no limits are configured."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=10000, requests=100)
+
+        # No limits configured (all None)
+        rate_limits = RateLimitConfig()
+        can_proceed, limit_type, next_reset = state.check_rate_limit(
+            "claude", estimated_tokens=1000, rate_limits=rate_limits
+        )
+
+        assert can_proceed is True
+        assert limit_type is None
+        assert next_reset is None
+
+    def test_check_rate_limit_under_all_limits(self):
+        """Test check_rate_limit when usage is under all limits."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=1000, requests=1)
+
+        rate_limits = RateLimitConfig(
+            max_tokens_hour=10000,
+            max_tokens_day=50000,
+            max_tokens_week=200000,
+            max_requests_minute=10,
+        )
+
+        can_proceed, limit_type, next_reset = state.check_rate_limit(
+            "claude", estimated_tokens=500, rate_limits=rate_limits
+        )
+
+        assert can_proceed is True
+        assert limit_type is None
+        assert next_reset is None
+
+    def test_check_rate_limit_exceeds_hourly_tokens(self):
+        """Test check_rate_limit when hourly token limit would be exceeded."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=9000, requests=1)
+
+        rate_limits = RateLimitConfig(max_tokens_hour=10000)
+
+        can_proceed, limit_type, next_reset = state.check_rate_limit(
+            "claude", estimated_tokens=2000, rate_limits=rate_limits
+        )
+
+        assert can_proceed is False
+        assert limit_type == "tokens_per_hour"
+        assert next_reset is not None
+        assert next_reset > datetime.utcnow()
+
+    def test_check_rate_limit_exceeds_daily_tokens(self):
+        """Test check_rate_limit when daily token limit would be exceeded."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=45000, requests=1)
+
+        rate_limits = RateLimitConfig(max_tokens_day=50000)
+
+        can_proceed, limit_type, next_reset = state.check_rate_limit(
+            "claude", estimated_tokens=6000, rate_limits=rate_limits
+        )
+
+        assert can_proceed is False
+        assert limit_type == "tokens_per_day"
+        assert next_reset is not None
+
+    def test_check_rate_limit_exceeds_weekly_tokens(self):
+        """Test check_rate_limit when weekly token limit would be exceeded."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=190000, requests=1)
+
+        rate_limits = RateLimitConfig(max_tokens_week=200000)
+
+        can_proceed, limit_type, next_reset = state.check_rate_limit(
+            "claude", estimated_tokens=15000, rate_limits=rate_limits
+        )
+
+        assert can_proceed is False
+        assert limit_type == "tokens_per_week"
+        assert next_reset is not None
+
+    def test_check_rate_limit_exceeds_requests_per_minute(self):
+        """Test check_rate_limit when requests per minute would be exceeded."""
+        state = RunState(task_file="tasks.yml")
+        # Add 10 requests in the last minute
+        for _ in range(10):
+            state.record_usage("claude", tokens=100, requests=1)
+
+        rate_limits = RateLimitConfig(max_requests_minute=10)
+
+        can_proceed, limit_type, next_reset = state.check_rate_limit(
+            "claude", estimated_tokens=100, rate_limits=rate_limits
+        )
+
+        assert can_proceed is False
+        assert limit_type == "requests_per_minute"
+        assert next_reset is not None
+
+    def test_check_rate_limit_different_providers(self):
+        """Test that rate limits are checked per provider."""
+        state = RunState(task_file="tasks.yml")
+        # Claude has high usage
+        state.record_usage("claude", tokens=9000, requests=1)
+        # OpenAI has low usage
+        state.record_usage("openai", tokens=100, requests=1)
+
+        rate_limits = RateLimitConfig(max_tokens_hour=10000)
+
+        # Claude should be blocked
+        can_proceed, _, _ = state.check_rate_limit(
+            "claude", estimated_tokens=2000, rate_limits=rate_limits
+        )
+        assert can_proceed is False
+
+        # OpenAI should be allowed
+        can_proceed, _, _ = state.check_rate_limit(
+            "openai", estimated_tokens=2000, rate_limits=rate_limits
+        )
+        assert can_proceed is True
+
+    def test_check_rate_limit_multiple_limits_first_fails(self):
+        """Test that first exceeded limit is returned when multiple limits exist."""
+        state = RunState(task_file="tasks.yml")
+        # Add 10 requests (will hit requests/minute limit first)
+        for _ in range(10):
+            state.record_usage("claude", tokens=1000, requests=1)
+
+        rate_limits = RateLimitConfig(
+            max_requests_minute=10,
+            max_tokens_hour=5000,  # This is also exceeded
+        )
+
+        can_proceed, limit_type, _ = state.check_rate_limit(
+            "claude", estimated_tokens=100, rate_limits=rate_limits
+        )
+
+        assert can_proceed is False
+        # requests_per_minute is checked first
+        assert limit_type == "requests_per_minute"
 
 
 class TestStateFileOperations:

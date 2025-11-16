@@ -9,6 +9,41 @@ from pathlib import Path
 from typing import Optional
 
 
+def calculate_next_reset(window_type: str) -> datetime:
+    """
+    Calculate the next reset time for a given rate limit window.
+
+    Args:
+        window_type: Type of window - 'minute', 'hour', 'day', or 'week'
+
+    Returns:
+        datetime of next reset boundary (UTC)
+    """
+    now = datetime.utcnow()
+
+    if window_type == "minute":
+        # Next minute boundary
+        next_reset = now.replace(second=0, microsecond=0) + timedelta(minutes=1)
+    elif window_type == "hour":
+        # Next hour boundary
+        next_reset = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    elif window_type == "day":
+        # Next day boundary (midnight UTC)
+        next_reset = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    elif window_type == "week":
+        # Next week boundary (Monday midnight UTC)
+        days_until_monday = (7 - now.weekday()) % 7
+        if days_until_monday == 0:
+            days_until_monday = 7
+        next_reset = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(
+            days=days_until_monday
+        )
+    else:
+        raise ValueError(f"Unknown window type: {window_type}")
+
+    return next_reset
+
+
 @dataclass
 class RunState:
     """
@@ -198,6 +233,50 @@ class RunState:
             if datetime.fromisoformat(record["timestamp"]) >= cutoff
         ]
         self.updated_at = datetime.utcnow().isoformat()
+
+    def check_rate_limit(
+        self, provider: str, estimated_tokens: int, rate_limits
+    ) -> tuple[bool, Optional[str], Optional[datetime]]:
+        """
+        Check if a new API call would exceed configured rate limits.
+
+        Args:
+            provider: Provider name (e.g., 'claude', 'openai')
+            estimated_tokens: Estimated tokens for the upcoming call
+            rate_limits: RateLimitConfig object with limit settings
+
+        Returns:
+            Tuple of (can_proceed, limit_type, next_reset):
+            - can_proceed: True if call can be made without exceeding limits
+            - limit_type: Type of limit that would be exceeded (or None)
+            - next_reset: When the exceeded limit will reset (or None)
+        """
+        # Check requests per minute
+        if rate_limits.max_requests_minute is not None:
+            _, current_requests = self.get_usage_for_window(provider, 1)
+            if current_requests + 1 > rate_limits.max_requests_minute:
+                return False, "requests_per_minute", calculate_next_reset("minute")
+
+        # Check tokens per hour
+        if rate_limits.max_tokens_hour is not None:
+            current_tokens, _ = self.get_hourly_usage(provider)
+            if current_tokens + estimated_tokens > rate_limits.max_tokens_hour:
+                return False, "tokens_per_hour", calculate_next_reset("hour")
+
+        # Check tokens per day
+        if rate_limits.max_tokens_day is not None:
+            current_tokens, _ = self.get_daily_usage(provider)
+            if current_tokens + estimated_tokens > rate_limits.max_tokens_day:
+                return False, "tokens_per_day", calculate_next_reset("day")
+
+        # Check tokens per week
+        if rate_limits.max_tokens_week is not None:
+            current_tokens, _ = self.get_weekly_usage(provider)
+            if current_tokens + estimated_tokens > rate_limits.max_tokens_week:
+                return False, "tokens_per_week", calculate_next_reset("week")
+
+        # All checks passed
+        return True, None, None
 
     def to_dict(self) -> dict:
         """Convert state to dictionary."""
