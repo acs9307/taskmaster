@@ -233,7 +233,7 @@ rate_limits:
 Epic 7 — Robust State & Resume
 
 Goal: Runs should be safely resumable after rate limits, crashes, or user aborts.
-	•	⬜ Task 7.1 — Durable run state serialization
+	•	✅ Task 7.1 — Durable run state serialization
 	•	Ensure all run-critical information is persisted:
 	•	Completed tasks.
 	•	Current task and its attempt counts.
