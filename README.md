@@ -56,6 +56,8 @@ taskmaster --help
 
 ## Quick Start
 
+> **New to TaskMaster?** Check out the [detailed Quickstart Guide](QUICKSTART.md) for a complete step-by-step tutorial with a working example.
+
 ### 1. Set Up API Keys
 
 TaskMaster requires API keys for AI providers:

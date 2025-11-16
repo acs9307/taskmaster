@@ -1,5 +1,6 @@
 # Include documentation files
 include README.md
+include QUICKSTART.md
 include LICENSE
 include CONTRIBUTING.md
 include TODO.txt

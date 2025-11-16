@@ -290,7 +290,7 @@ Goal: Make it easy to install, configure, and understand the app.
 	•	Add packaging for:
 	•	pip / PyPI or npm / cargo as appropriate.
 	•	Document dependencies and installation steps.
-	•	⬜ Task 9.2 — Quickstart guide
+	•	✅ Task 9.2 — Quickstart guide
 	•	Create a README section:
 	•	Install tool.
 	•	Create a tasks.yml.
