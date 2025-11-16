@@ -22,6 +22,7 @@ class RunState:
     current_task_index: int = 0
     failure_counts: dict[str, int] = field(default_factory=dict)
     attempt_counts: dict[str, int] = field(default_factory=dict)
+    non_progress_counts: dict[str, int] = field(default_factory=dict)
     last_errors: dict[str, str] = field(default_factory=dict)
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -68,6 +69,15 @@ class RunState:
     def get_attempt_count(self, task_id: str) -> int:
         """Get the attempt count for a task."""
         return self.attempt_counts.get(task_id, 0)
+
+    def increment_non_progress_count(self, task_id: str):
+        """Increment non-progress count for a task (when no changes are made but tests fail)."""
+        self.non_progress_counts[task_id] = self.non_progress_counts.get(task_id, 0) + 1
+        self.updated_at = datetime.utcnow().isoformat()
+
+    def get_non_progress_count(self, task_id: str) -> int:
+        """Get the non-progress count for a task."""
+        return self.non_progress_counts.get(task_id, 0)
 
     def get_last_error(self, task_id: str) -> Optional[str]:
         """Get the last error message for a task."""

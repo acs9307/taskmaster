@@ -170,8 +170,8 @@ Goal: If tests keep failing for a task, the app should stop automatically and as
 	•	Add config options:
 	•	max_attempts_per_task (e.g. 3).
 	•	max_consecutive_failures before escalation.
-	•	⬜ Task 5.2 — Non-progress detection
-	•	Optionally detect “no progress” by:
+	•	✅ Task 5.2 — Non-progress detection
+	•	Optionally detect "no progress" by:
 	•	Comparing git diff before/after agent attempts.
 	•	If diff is empty but tests still fail → increment a non-progress counter.
 	•	Treat repeated non-progress as grounds for escalation.

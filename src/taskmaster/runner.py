@@ -10,6 +10,7 @@ import click
 from taskmaster.agent_client import AgentClient, AgentError, CompletionRequest
 from taskmaster.change_applier import ChangeApplier
 from taskmaster.config import Config
+from taskmaster.git_utils import get_git_diff, has_changes
 from taskmaster.hook_runner import HookExecutionError, HookRunner
 from taskmaster.models import Task, TaskList
 from taskmaster.prompt_builder import PromptBuilder, PromptContext
@@ -293,6 +294,9 @@ class TaskRunner:
                     task.mark_failed()
                     return False
 
+            # Capture git diff before agent execution (for non-progress detection)
+            diff_before = get_git_diff(Path.cwd())
+
             # Build prompt for the task
             click.secho("\n⚙  Building prompt...", fg="yellow")
             context = PromptContext(
@@ -333,6 +337,9 @@ class TaskRunner:
                 else:
                     click.echo("  No code changes found in response")
 
+            # Capture git diff after code application (for non-progress detection)
+            diff_after = get_git_diff(Path.cwd())
+
             # Run post-hooks if configured
             post_hooks = task.post_hooks or (
                 self.config.hook_defaults.post_hooks if self.config else []
@@ -369,6 +376,15 @@ class TaskRunner:
 
                     # Save failed hook results
                     self.hook_runner.save_hook_results(task.id, [e.hook_result], "post")
+
+                    # Detect non-progress: if no code changes were made but tests still fail
+                    if not has_changes(diff_before, diff_after):
+                        self.state.increment_non_progress_count(task.id)
+                        non_progress = self.state.get_non_progress_count(task.id)
+                        click.secho(
+                            f"  ⚠ Non-progress detected: No code changes made (count: {non_progress})",
+                            fg="yellow",
+                        )
 
                     task.mark_failed()
                     return False

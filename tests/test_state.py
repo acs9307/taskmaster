@@ -26,6 +26,7 @@ class TestRunState:
         assert state.current_task_index == 0
         assert state.failure_counts == {}
         assert state.attempt_counts == {}
+        assert state.non_progress_counts == {}
         assert state.last_errors == {}
         assert state.created_at is not None
         assert state.updated_at is not None
@@ -165,6 +166,52 @@ class TestRunState:
         assert state.get_attempt_count("T1") == 3
         assert state.get_failure_count("T1") == 2
 
+    def test_increment_non_progress_count(self):
+        """Test incrementing non-progress count."""
+        state = RunState(task_file="tasks.yml")
+        state.increment_non_progress_count("T1")
+
+        assert state.non_progress_counts["T1"] == 1
+
+    def test_increment_non_progress_count_multiple_times(self):
+        """Test incrementing non-progress count multiple times."""
+        state = RunState(task_file="tasks.yml")
+        state.increment_non_progress_count("T1")
+        state.increment_non_progress_count("T1")
+        state.increment_non_progress_count("T1")
+
+        assert state.non_progress_counts["T1"] == 3
+
+    def test_get_non_progress_count(self):
+        """Test getting non-progress count for a task."""
+        state = RunState(task_file="tasks.yml")
+        state.increment_non_progress_count("T1")
+        state.increment_non_progress_count("T1")
+
+        assert state.get_non_progress_count("T1") == 2
+        assert state.get_non_progress_count("T2") == 0
+
+    def test_non_progress_count_independent(self):
+        """Test that non-progress count is independent of other counts."""
+        state = RunState(task_file="tasks.yml")
+
+        # Task with attempts, failures, and non-progress
+        state.increment_attempt_count("T1")
+        state.increment_failure_count("T1", "Error")
+        state.increment_non_progress_count("T1")
+
+        state.increment_attempt_count("T1")
+        state.increment_failure_count("T1", "Error")
+        # This attempt made progress
+
+        state.increment_attempt_count("T1")
+        state.increment_non_progress_count("T1")
+
+        # Verify all counters are independent
+        assert state.get_attempt_count("T1") == 3
+        assert state.get_failure_count("T1") == 2
+        assert state.get_non_progress_count("T1") == 2
+
     def test_to_dict(self):
         """Test converting state to dictionary."""
         state = RunState(
@@ -188,6 +235,7 @@ class TestRunState:
             "current_task_index": 2,
             "failure_counts": {"T3": 1},
             "attempt_counts": {"T3": 2},
+            "non_progress_counts": {"T3": 1},
             "last_errors": {"T3": "Error"},
             "created_at": "2024-01-01T00:00:00",
             "updated_at": "2024-01-01T01:00:00",
@@ -199,6 +247,7 @@ class TestRunState:
         assert state.current_task_index == 2
         assert state.failure_counts == {"T3": 1}
         assert state.attempt_counts == {"T3": 2}
+        assert state.non_progress_counts == {"T3": 1}
         assert state.last_errors == {"T3": "Error"}
         assert state.created_at == "2024-01-01T00:00:00"
         assert state.updated_at == "2024-01-01T01:00:00"
@@ -360,6 +409,7 @@ class TestStateFileOperations:
                 current_task_index=3,
                 failure_counts={"T4": 2, "T5": 1},
                 attempt_counts={"T4": 3, "T5": 2},
+                non_progress_counts={"T4": 1},
                 last_errors={"T4": "Error A", "T5": "Error B"},
             )
 
@@ -373,6 +423,7 @@ class TestStateFileOperations:
             assert loaded.current_task_index == original.current_task_index
             assert loaded.failure_counts == original.failure_counts
             assert loaded.attempt_counts == original.attempt_counts
+            assert loaded.non_progress_counts == original.non_progress_counts
             assert loaded.last_errors == original.last_errors
 
     def test_state_file_format(self):
@@ -396,6 +447,7 @@ class TestStateFileOperations:
             assert "current_task_index" in data
             assert "failure_counts" in data
             assert "attempt_counts" in data
+            assert "non_progress_counts" in data
             assert "last_errors" in data
             assert "created_at" in data
             assert "updated_at" in data
