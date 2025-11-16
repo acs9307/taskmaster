@@ -209,7 +209,7 @@ rate_limits:
 
 	•	Allow user to disable or override with --ignore-config-limits (not recommended).
 
-	•	⬜ Task 6.2 — Local usage tracking
+	•	✅ Task 6.2 — Local usage tracking
 	•	Track approximate tokens/requests per:
 	•	Hour.
 	•	Day/week (depending on provider model).

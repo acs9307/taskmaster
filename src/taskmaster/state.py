@@ -4,7 +4,7 @@ import json
 import os
 import tempfile
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -25,6 +25,7 @@ class RunState:
     non_progress_counts: dict[str, int] = field(default_factory=dict)
     user_interventions: dict[str, str] = field(default_factory=dict)
     last_errors: dict[str, str] = field(default_factory=dict)
+    usage_records: list[dict] = field(default_factory=list)
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -92,6 +93,111 @@ class RunState:
     def get_last_error(self, task_id: str) -> Optional[str]:
         """Get the last error message for a task."""
         return self.last_errors.get(task_id)
+
+    def record_usage(self, provider: str, tokens: int = 0, requests: int = 0):
+        """
+        Record API usage for rate limit tracking.
+
+        Args:
+            provider: Provider name (e.g., 'claude', 'openai')
+            tokens: Number of tokens used
+            requests: Number of requests made
+        """
+        usage_record = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "provider": provider,
+            "tokens": tokens,
+            "requests": requests,
+        }
+        self.usage_records.append(usage_record)
+        self.updated_at = datetime.utcnow().isoformat()
+
+    def get_usage_for_window(self, provider: str, window_minutes: int) -> tuple[int, int]:
+        """
+        Get total usage (tokens, requests) for a provider within a time window.
+
+        Args:
+            provider: Provider name to filter by
+            window_minutes: Time window in minutes from now
+
+        Returns:
+            Tuple of (total_tokens, total_requests) within the window
+        """
+        now = datetime.utcnow()
+        cutoff = now - timedelta(minutes=window_minutes)
+
+        total_tokens = 0
+        total_requests = 0
+
+        for record in self.usage_records:
+            # Filter by provider
+            if record.get("provider") != provider:
+                continue
+
+            # Parse timestamp and check if within window
+            try:
+                record_time = datetime.fromisoformat(record["timestamp"])
+                if record_time >= cutoff:
+                    total_tokens += record.get("tokens", 0)
+                    total_requests += record.get("requests", 0)
+            except (ValueError, KeyError):
+                # Skip invalid records
+                continue
+
+        return total_tokens, total_requests
+
+    def get_hourly_usage(self, provider: str) -> tuple[int, int]:
+        """
+        Get usage for the last hour.
+
+        Args:
+            provider: Provider name
+
+        Returns:
+            Tuple of (tokens, requests) used in last hour
+        """
+        return self.get_usage_for_window(provider, 60)
+
+    def get_daily_usage(self, provider: str) -> tuple[int, int]:
+        """
+        Get usage for the last 24 hours.
+
+        Args:
+            provider: Provider name
+
+        Returns:
+            Tuple of (tokens, requests) used in last 24 hours
+        """
+        return self.get_usage_for_window(provider, 24 * 60)
+
+    def get_weekly_usage(self, provider: str) -> tuple[int, int]:
+        """
+        Get usage for the last 7 days.
+
+        Args:
+            provider: Provider name
+
+        Returns:
+            Tuple of (tokens, requests) used in last 7 days
+        """
+        return self.get_usage_for_window(provider, 7 * 24 * 60)
+
+    def cleanup_old_usage_records(self, days_to_keep: int = 7):
+        """
+        Remove usage records older than specified days.
+
+        Args:
+            days_to_keep: Number of days of records to keep (default 7)
+        """
+        cutoff = datetime.utcnow() - timedelta(days=days_to_keep)
+
+        # Filter to keep only recent records
+        self.usage_records = [
+            record
+            for record in self.usage_records
+            if datetime.fromisoformat(record["timestamp"]) >= cutoff
+        ]
+        self.updated_at = datetime.utcnow().isoformat()
 
     def to_dict(self) -> dict:
         """Convert state to dictionary."""

@@ -29,6 +29,7 @@ class TestRunState:
         assert state.non_progress_counts == {}
         assert state.user_interventions == {}
         assert state.last_errors == {}
+        assert state.usage_records == []
         assert state.created_at is not None
         assert state.updated_at is not None
 
@@ -314,6 +315,194 @@ class TestRunState:
 
         state.mark_task_completed("T1")
         assert state.updated_at != initial_updated
+
+    def test_record_usage(self):
+        """Test recording API usage."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=1000, requests=1)
+
+        assert len(state.usage_records) == 1
+        record = state.usage_records[0]
+        assert record["provider"] == "claude"
+        assert record["tokens"] == 1000
+        assert record["requests"] == 1
+        assert "timestamp" in record
+
+    def test_record_usage_multiple(self):
+        """Test recording multiple usage records."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=1000, requests=1)
+        state.record_usage("claude", tokens=500, requests=1)
+        state.record_usage("openai", tokens=2000, requests=1)
+
+        assert len(state.usage_records) == 3
+
+    def test_get_usage_for_window_empty(self):
+        """Test getting usage when no records exist."""
+        state = RunState(task_file="tasks.yml")
+        tokens, requests = state.get_usage_for_window("claude", 60)
+
+        assert tokens == 0
+        assert requests == 0
+
+    def test_get_usage_for_window_single_provider(self):
+        """Test getting usage for a single provider."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=1000, requests=1)
+        state.record_usage("claude", tokens=500, requests=1)
+        state.record_usage("openai", tokens=2000, requests=1)
+
+        tokens, requests = state.get_usage_for_window("claude", 60)
+        assert tokens == 1500
+        assert requests == 2
+
+    def test_get_usage_for_window_filters_provider(self):
+        """Test that usage filtering by provider works correctly."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=1000, requests=1)
+        state.record_usage("openai", tokens=2000, requests=1)
+
+        tokens, requests = state.get_usage_for_window("claude", 60)
+        assert tokens == 1000
+        assert requests == 1
+
+        tokens, requests = state.get_usage_for_window("openai", 60)
+        assert tokens == 2000
+        assert requests == 1
+
+    def test_get_usage_for_window_time_filtering(self):
+        """Test that usage filtering by time window works."""
+        from datetime import datetime, timedelta
+
+        state = RunState(task_file="tasks.yml")
+
+        # Add an old record (2 hours ago)
+        old_time = datetime.utcnow() - timedelta(hours=2)
+        old_record = {
+            "timestamp": old_time.isoformat(),
+            "provider": "claude",
+            "tokens": 1000,
+            "requests": 1,
+        }
+        state.usage_records.append(old_record)
+
+        # Add a recent record
+        state.record_usage("claude", tokens=500, requests=1)
+
+        # Get usage for last hour (should only include recent)
+        tokens, requests = state.get_usage_for_window("claude", 60)
+        assert tokens == 500
+        assert requests == 1
+
+        # Get usage for last 3 hours (should include both)
+        tokens, requests = state.get_usage_for_window("claude", 180)
+        assert tokens == 1500
+        assert requests == 2
+
+    def test_get_hourly_usage(self):
+        """Test getting hourly usage."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=1000, requests=1)
+        state.record_usage("claude", tokens=500, requests=1)
+
+        tokens, requests = state.get_hourly_usage("claude")
+        assert tokens == 1500
+        assert requests == 2
+
+    def test_get_daily_usage(self):
+        """Test getting daily usage."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=1000, requests=1)
+        state.record_usage("claude", tokens=500, requests=1)
+
+        tokens, requests = state.get_daily_usage("claude")
+        assert tokens == 1500
+        assert requests == 2
+
+    def test_get_weekly_usage(self):
+        """Test getting weekly usage."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=1000, requests=1)
+        state.record_usage("claude", tokens=500, requests=1)
+
+        tokens, requests = state.get_weekly_usage("claude")
+        assert tokens == 1500
+        assert requests == 2
+
+    def test_cleanup_old_usage_records(self):
+        """Test cleaning up old usage records."""
+        from datetime import datetime, timedelta
+
+        state = RunState(task_file="tasks.yml")
+
+        # Add old records (8 days ago)
+        old_time = datetime.utcnow() - timedelta(days=8)
+        old_record = {
+            "timestamp": old_time.isoformat(),
+            "provider": "claude",
+            "tokens": 1000,
+            "requests": 1,
+        }
+        state.usage_records.append(old_record)
+
+        # Add recent records
+        state.record_usage("claude", tokens=500, requests=1)
+        state.record_usage("openai", tokens=2000, requests=1)
+
+        # Should have 3 records
+        assert len(state.usage_records) == 3
+
+        # Cleanup (keep 7 days)
+        state.cleanup_old_usage_records(days_to_keep=7)
+
+        # Should only have 2 recent records
+        assert len(state.usage_records) == 2
+        # Old record should be removed
+        for record in state.usage_records:
+            timestamp = datetime.fromisoformat(record["timestamp"])
+            assert timestamp > datetime.utcnow() - timedelta(days=7)
+
+    def test_cleanup_old_usage_records_custom_days(self):
+        """Test cleaning up old records with custom retention period."""
+        from datetime import datetime, timedelta
+
+        state = RunState(task_file="tasks.yml")
+
+        # Add records at different times
+        for days_ago in [15, 10, 5, 1]:
+            old_time = datetime.utcnow() - timedelta(days=days_ago)
+            record = {
+                "timestamp": old_time.isoformat(),
+                "provider": "claude",
+                "tokens": 100,
+                "requests": 1,
+            }
+            state.usage_records.append(record)
+
+        # Keep only last 7 days
+        state.cleanup_old_usage_records(days_to_keep=7)
+        assert len(state.usage_records) == 2  # Only 5 and 1 day old records
+
+        # Keep only last 3 days
+        state.cleanup_old_usage_records(days_to_keep=3)
+        assert len(state.usage_records) == 1  # Only 1 day old record
+
+    def test_usage_records_persist_in_serialization(self):
+        """Test that usage records are included in to_dict/from_dict."""
+        state = RunState(task_file="tasks.yml")
+        state.record_usage("claude", tokens=1000, requests=1)
+        state.record_usage("openai", tokens=500, requests=1)
+
+        # Convert to dict
+        state_dict = state.to_dict()
+        assert "usage_records" in state_dict
+        assert len(state_dict["usage_records"]) == 2
+
+        # Recreate from dict
+        restored_state = RunState.from_dict(state_dict)
+        assert len(restored_state.usage_records) == 2
+        assert restored_state.usage_records[0]["provider"] == "claude"
+        assert restored_state.usage_records[0]["tokens"] == 1000
 
 
 class TestStateFileOperations:
