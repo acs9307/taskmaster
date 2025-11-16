@@ -286,7 +286,7 @@ Goal: Make the tool nice to use from a terminal and easy to integrate into dev w
 Epic 9 — Packaging, Docs, and Release
 
 Goal: Make it easy to install, configure, and understand the app.
-	•	⬜ Task 9.1 — Installation & packaging
+	•	✅ Task 9.1 — Installation & packaging
 	•	Add packaging for:
 	•	pip / PyPI or npm / cargo as appropriate.
 	•	Document dependencies and installation steps.
