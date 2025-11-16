@@ -151,11 +151,12 @@ hooks:
 	•	Capture results.
 	•	If post-hooks pass → mark task as completed.
 	•	If they fail → trigger fail-safe logic (Epic 5).
-	•	⬜ Task 4.4 — Hook logging
+	•	✅ Task 4.4 — Hook logging
 	•	Store logs per task:
 	•	logs/TASK_ID/pre.log
 	•	logs/TASK_ID/post.log
 	•	Summarize results in CLI output.
+	•	NOTE: Already implemented in Tasks 4.2 and 4.3
 
 ⸻
 
