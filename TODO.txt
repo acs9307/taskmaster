@@ -145,8 +145,8 @@ hooks:
 	•	Capture stdout/stderr and exit codes.
 	•	If a pre-hook fails:
 	•	Abort the task and ask user whether to retry, skip, or abort entire run.
-	•	⬜ Task 4.3 — Post-task hook runner
-	•	After the agent’s changes:
+	•	✅ Task 4.3 — Post-task hook runner
+	•	After the agent's changes:
 	•	Run all configured post_hooks (e.g., tests, linters).
 	•	Capture results.
 	•	If post-hooks pass → mark task as completed.

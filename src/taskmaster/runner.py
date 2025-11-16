@@ -290,7 +290,47 @@ class TaskRunner:
                 else:
                     click.echo("  No code changes found in response")
 
-            # Mark task as completed
+            # Run post-hooks if configured
+            post_hooks = task.post_hooks or (
+                self.config.hook_defaults.post_hooks if self.config else []
+            )
+
+            if post_hooks and self.hook_runner:
+                click.secho(f"\n⚙  Running {len(post_hooks)} post-task hook(s)...", fg="yellow")
+
+                try:
+                    results = self.hook_runner.run_post_hooks(post_hooks)
+
+                    # Display hook results
+                    for result in results:
+                        if result.success:
+                            click.secho(
+                                f"  ✓ {result.hook_id} ({result.duration:.1f}s)",
+                                fg="green",
+                            )
+                        else:
+                            click.secho(f"  ✗ {result.hook_id} failed", fg="red")
+                            if result.stderr:
+                                click.echo(f"    {result.stderr[:200]}")
+
+                    # Save post-hook results
+                    self.hook_runner.save_hook_results(task.id, results, "post")
+
+                except HookExecutionError as e:
+                    click.secho(f"\n✗ Post-hook failed: {e}", fg="red")
+                    click.echo(f"  Hook: {e.hook_result.hook_id}")
+                    click.echo(f"  Exit code: {e.hook_result.exit_code}")
+
+                    if e.hook_result.stderr:
+                        click.echo(f"  Error: {e.hook_result.stderr[:500]}")
+
+                    # Save failed hook results
+                    self.hook_runner.save_hook_results(task.id, [e.hook_result], "post")
+
+                    task.mark_failed()
+                    return False
+
+            # Mark task as completed (only if all hooks passed)
             task.mark_completed()
             click.secho(f"\n✓ Task completed: {task.title}", fg="green")
 

@@ -520,3 +520,212 @@ class TestAgentIntegration:
         # Should still succeed (marks task as completed without agent)
         assert success is True
         assert task.status == TaskStatus.COMPLETED
+
+    def test_run_task_with_post_hooks_success(self):
+        """Test running a task with successful post-hooks."""
+        import tempfile
+        from unittest.mock import MagicMock, patch
+
+        from taskmaster.agent_client import CompletionResponse
+        from taskmaster.config import Config, HookConfig
+
+        task = Task(
+            id="T1",
+            title="Test task",
+            description="A test task",
+            post_hooks=["unit-tests"],
+        )
+        task_list = TaskList()
+        task_list.add_task(task)
+        task_file = Path("tasks.yml")
+
+        # Mock agent client
+        mock_agent = MagicMock()
+        mock_response = CompletionResponse(
+            content="Task completed successfully",
+            model="test-model",
+            usage={"total_tokens": 100},
+        )
+        mock_agent.generate_completion.return_value = mock_response
+        mock_agent.get_model_name.return_value = "test-model"
+
+        # Create config with hooks
+        config = Config(
+            hooks={
+                "unit-tests": HookConfig(command="pytest"),
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir)
+
+            with patch("subprocess.run") as mock_run:
+                # Mock successful hook execution
+                mock_run.return_value = MagicMock(
+                    returncode=0, stdout="All tests passed", stderr=""
+                )
+
+                runner = TaskRunner(
+                    task_list,
+                    task_file,
+                    agent_client=mock_agent,
+                    provider_name="test",
+                    log_dir=log_dir,
+                    config=config,
+                )
+
+                # Run task
+                success = runner.run()
+
+                assert success is True
+                assert task.status == TaskStatus.COMPLETED
+
+                # Check post-hook was executed (git status + hook command)
+                assert mock_run.call_count >= 1
+                # Verify the last call was the post-hook
+                last_call = mock_run.call_args_list[-1]
+                assert "pytest" in str(last_call)
+
+                # Check post-hook log was created
+                post_log = log_dir / "T1" / "post.log"
+                assert post_log.exists()
+
+    def test_run_task_with_post_hooks_failure(self):
+        """Test running a task with failing post-hooks."""
+        import tempfile
+        from unittest.mock import MagicMock, patch
+
+        from taskmaster.agent_client import CompletionResponse
+        from taskmaster.config import Config, HookConfig
+
+        task = Task(
+            id="T1",
+            title="Test task",
+            description="A test task",
+            post_hooks=["unit-tests"],
+        )
+        task_list = TaskList()
+        task_list.add_task(task)
+        task_file = Path("tasks.yml")
+
+        # Mock agent client
+        mock_agent = MagicMock()
+        mock_response = CompletionResponse(
+            content="Task completed successfully",
+            model="test-model",
+            usage={"total_tokens": 100},
+        )
+        mock_agent.generate_completion.return_value = mock_response
+        mock_agent.get_model_name.return_value = "test-model"
+
+        # Create config with hooks
+        config = Config(
+            hooks={
+                "unit-tests": HookConfig(command="pytest", continue_on_failure=False),
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir)
+
+            with patch("subprocess.run") as mock_run:
+                # Mock failed hook execution
+                mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Tests failed")
+
+                runner = TaskRunner(
+                    task_list,
+                    task_file,
+                    agent_client=mock_agent,
+                    provider_name="test",
+                    log_dir=log_dir,
+                    config=config,
+                )
+
+                # Run task
+                success = runner.run()
+
+                # Task should fail due to post-hook failure
+                assert success is False
+                assert task.status == TaskStatus.FAILED
+
+                # Check post-hook was executed (git status + hook command)
+                assert mock_run.call_count >= 1
+                # Verify the last call was the post-hook
+                last_call = mock_run.call_args_list[-1]
+                assert "pytest" in str(last_call)
+
+                # Check post-hook log was created
+                post_log = log_dir / "T1" / "post.log"
+                assert post_log.exists()
+
+    def test_run_task_with_pre_and_post_hooks(self):
+        """Test running a task with both pre and post hooks."""
+        import tempfile
+        from unittest.mock import MagicMock, patch
+
+        from taskmaster.agent_client import CompletionResponse
+        from taskmaster.config import Config, HookConfig
+
+        task = Task(
+            id="T1",
+            title="Test task",
+            description="A test task",
+            pre_hooks=["install"],
+            post_hooks=["test"],
+        )
+        task_list = TaskList()
+        task_list.add_task(task)
+        task_file = Path("tasks.yml")
+
+        # Mock agent client
+        mock_agent = MagicMock()
+        mock_response = CompletionResponse(
+            content="Task completed successfully",
+            model="test-model",
+            usage={"total_tokens": 100},
+        )
+        mock_agent.generate_completion.return_value = mock_response
+        mock_agent.get_model_name.return_value = "test-model"
+
+        # Create config with hooks
+        config = Config(
+            hooks={
+                "install": HookConfig(command="npm install"),
+                "test": HookConfig(command="npm test"),
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir)
+
+            with patch("subprocess.run") as mock_run:
+                # Mock successful hook executions
+                mock_run.return_value = MagicMock(returncode=0, stdout="Success", stderr="")
+
+                runner = TaskRunner(
+                    task_list,
+                    task_file,
+                    agent_client=mock_agent,
+                    provider_name="test",
+                    log_dir=log_dir,
+                    config=config,
+                )
+
+                # Run task
+                success = runner.run()
+
+                assert success is True
+                assert task.status == TaskStatus.COMPLETED
+
+                # Check both hooks were executed (git status + pre-hook + post-hook = 3)
+                assert mock_run.call_count >= 2
+                # Verify hooks were called
+                calls_str = str(mock_run.call_args_list)
+                assert "npm install" in calls_str
+                assert "npm test" in calls_str
+
+                # Check both log files were created
+                pre_log = log_dir / "T1" / "pre.log"
+                post_log = log_dir / "T1" / "post.log"
+                assert pre_log.exists()
+                assert post_log.exists()
