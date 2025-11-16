@@ -27,6 +27,7 @@ class TestRunState:
         assert state.failure_counts == {}
         assert state.attempt_counts == {}
         assert state.non_progress_counts == {}
+        assert state.user_interventions == {}
         assert state.last_errors == {}
         assert state.created_at is not None
         assert state.updated_at is not None
@@ -212,6 +213,44 @@ class TestRunState:
         assert state.get_failure_count("T1") == 2
         assert state.get_non_progress_count("T1") == 2
 
+    def test_record_user_intervention(self):
+        """Test recording user intervention."""
+        state = RunState(task_file="tasks.yml")
+        state.record_user_intervention("T1", "retry")
+
+        assert state.user_interventions["T1"] == "retry"
+
+    def test_record_user_intervention_multiple(self):
+        """Test recording multiple user interventions."""
+        state = RunState(task_file="tasks.yml")
+        state.record_user_intervention("T1", "retry")
+        state.record_user_intervention("T2", "skip")
+        state.record_user_intervention("T3", "abort")
+
+        assert state.user_interventions["T1"] == "retry"
+        assert state.user_interventions["T2"] == "skip"
+        assert state.user_interventions["T3"] == "abort"
+
+    def test_get_user_intervention(self):
+        """Test getting user intervention."""
+        state = RunState(task_file="tasks.yml")
+        state.record_user_intervention("T1", "skip")
+
+        assert state.get_user_intervention("T1") == "skip"
+        assert state.get_user_intervention("T2") is None
+
+    def test_record_user_intervention_updates_timestamp(self):
+        """Test that recording intervention updates timestamp."""
+        state = RunState(task_file="tasks.yml")
+        initial_updated = state.updated_at
+
+        import time
+
+        time.sleep(0.01)
+
+        state.record_user_intervention("T1", "retry")
+        assert state.updated_at != initial_updated
+
     def test_to_dict(self):
         """Test converting state to dictionary."""
         state = RunState(
@@ -236,6 +275,7 @@ class TestRunState:
             "failure_counts": {"T3": 1},
             "attempt_counts": {"T3": 2},
             "non_progress_counts": {"T3": 1},
+            "user_interventions": {"T3": "retry"},
             "last_errors": {"T3": "Error"},
             "created_at": "2024-01-01T00:00:00",
             "updated_at": "2024-01-01T01:00:00",
@@ -248,6 +288,7 @@ class TestRunState:
         assert state.failure_counts == {"T3": 1}
         assert state.attempt_counts == {"T3": 2}
         assert state.non_progress_counts == {"T3": 1}
+        assert state.user_interventions == {"T3": "retry"}
         assert state.last_errors == {"T3": "Error"}
         assert state.created_at == "2024-01-01T00:00:00"
         assert state.updated_at == "2024-01-01T01:00:00"
@@ -410,6 +451,7 @@ class TestStateFileOperations:
                 failure_counts={"T4": 2, "T5": 1},
                 attempt_counts={"T4": 3, "T5": 2},
                 non_progress_counts={"T4": 1},
+                user_interventions={"T4": "retry", "T5": "skip"},
                 last_errors={"T4": "Error A", "T5": "Error B"},
             )
 
@@ -424,6 +466,7 @@ class TestStateFileOperations:
             assert loaded.failure_counts == original.failure_counts
             assert loaded.attempt_counts == original.attempt_counts
             assert loaded.non_progress_counts == original.non_progress_counts
+            assert loaded.user_interventions == original.user_interventions
             assert loaded.last_errors == original.last_errors
 
     def test_state_file_format(self):
@@ -448,6 +491,7 @@ class TestStateFileOperations:
             assert "failure_counts" in data
             assert "attempt_counts" in data
             assert "non_progress_counts" in data
+            assert "user_interventions" in data
             assert "last_errors" in data
             assert "created_at" in data
             assert "updated_at" in data

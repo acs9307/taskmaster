@@ -414,7 +414,7 @@ class TestAgentIntegration:
 
     def test_run_task_agent_error(self):
         """Test handling agent errors."""
-        from unittest.mock import MagicMock
+        from unittest.mock import MagicMock, patch
 
         from taskmaster.agent_client import AgentError, ErrorType
 
@@ -436,8 +436,10 @@ class TestAgentIntegration:
 
         runner = TaskRunner(task_list, task_file, agent_client=mock_agent, provider_name="test")
 
-        # Run task
-        success = runner.run()
+        # Mock user intervention to return 'abort'
+        with patch.object(runner, "_prompt_user_intervention", return_value="abort"):
+            # Run task
+            success = runner.run()
 
         assert success is False
         assert task.status == TaskStatus.FAILED
@@ -641,8 +643,10 @@ class TestAgentIntegration:
                     config=config,
                 )
 
-                # Run task
-                success = runner.run()
+                # Mock user intervention to return 'abort'
+                with patch.object(runner, "_prompt_user_intervention", return_value="abort"):
+                    # Run task
+                    success = runner.run()
 
                 # Task should fail due to post-hook failure
                 assert success is False

@@ -23,6 +23,7 @@ class RunState:
     failure_counts: dict[str, int] = field(default_factory=dict)
     attempt_counts: dict[str, int] = field(default_factory=dict)
     non_progress_counts: dict[str, int] = field(default_factory=dict)
+    user_interventions: dict[str, str] = field(default_factory=dict)
     last_errors: dict[str, str] = field(default_factory=dict)
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -78,6 +79,15 @@ class RunState:
     def get_non_progress_count(self, task_id: str) -> int:
         """Get the non-progress count for a task."""
         return self.non_progress_counts.get(task_id, 0)
+
+    def record_user_intervention(self, task_id: str, action: str):
+        """Record a user intervention action for a task (retry, skip, abort)."""
+        self.user_interventions[task_id] = action
+        self.updated_at = datetime.utcnow().isoformat()
+
+    def get_user_intervention(self, task_id: str) -> Optional[str]:
+        """Get the user intervention action for a task."""
+        return self.user_interventions.get(task_id)
 
     def get_last_error(self, task_id: str) -> Optional[str]:
         """Get the last error message for a task."""

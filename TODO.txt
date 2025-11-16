@@ -175,7 +175,7 @@ Goal: If tests keep failing for a task, the app should stop automatically and as
 	•	Comparing git diff before/after agent attempts.
 	•	If diff is empty but tests still fail → increment a non-progress counter.
 	•	Treat repeated non-progress as grounds for escalation.
-	•	⬜ Task 5.3 — Escalation to manual intervention
+	•	✅ Task 5.3 — Escalation to manual intervention
 	•	When thresholds are exceeded:
 	•	Stop automatic retries for that task.
 	•	Present a clear summary:
@@ -185,7 +185,7 @@ Goal: If tests keep failing for a task, the app should stop automatically and as
 	•	[R]etry once more.
 	•	[S]kip this task.
 	•	[A]bort entire run.
-	•	Persist the user’s choice in state.
+	•	Persist the user's choice in state.
 	•	⬜ Task 5.4 — “Hard stop” mode
 	•	Add option --stop-on-first-failure:
 	•	Any post-hook failure stops immediately and prompts user.

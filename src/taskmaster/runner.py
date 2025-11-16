@@ -12,7 +12,7 @@ from taskmaster.change_applier import ChangeApplier
 from taskmaster.config import Config
 from taskmaster.git_utils import get_git_diff, has_changes
 from taskmaster.hook_runner import HookExecutionError, HookRunner
-from taskmaster.models import Task, TaskList
+from taskmaster.models import Task, TaskList, TaskStatus
 from taskmaster.prompt_builder import PromptBuilder, PromptContext
 from taskmaster.state import RunState, load_state, save_state
 from taskmaster.task_parser import load_task_list
@@ -170,19 +170,37 @@ class TaskRunner:
                             save_state(self.state)
                         # Continue to next iteration of retry loop
                     else:
-                        # Max attempts reached
-                        click.secho(
-                            f"\n✗ Task failed after {max_attempts} attempts - stopping execution",
-                            fg="red",
-                            bold=True,
-                        )
-                        all_successful = False
+                        # Max attempts reached - escalate to user intervention
+                        user_choice = self._prompt_user_intervention(task, max_attempts)
+
+                        # Record user intervention
+                        self.state.record_user_intervention(task.id, user_choice)
                         if not self.dry_run:
                             save_state(self.state)
-                        break  # Exit retry loop
 
-            # If task ultimately failed, stop execution
-            if not success:
+                        if user_choice == "retry":
+                            click.secho("\n⚙  Retrying task once more...", fg="yellow")
+                            # Reset for one more attempt
+                            task.reset_for_retry()
+                            # Continue to next iteration of retry loop
+                        elif user_choice == "skip":
+                            click.secho(f"\n⊘ Skipping task: {task.title}", fg="yellow")
+                            task.mark_skipped()
+                            if not self.dry_run:
+                                save_state(self.state)
+                            break  # Exit retry loop, continue to next task
+                        elif user_choice == "abort":
+                            click.secho("\n✗ Aborting execution as requested", fg="red", bold=True)
+                            all_successful = False
+                            if not self.dry_run:
+                                save_state(self.state)
+                            # Set success to False to trigger outer loop exit
+                            success = False
+                            break  # Exit retry loop
+
+            # If task ultimately failed or aborted, stop execution
+            # But allow continuing if task was skipped
+            if not success and task.status != TaskStatus.SKIPPED:
                 break
 
         click.echo("\n" + "=" * 60)
@@ -412,6 +430,66 @@ class TaskRunner:
             click.secho(f"\n✗ Unexpected error: {e}", fg="red")
             task.mark_failed()
             return False
+
+    def _prompt_user_intervention(self, task: Task, max_attempts: int) -> str:
+        """
+        Prompt user for intervention when task repeatedly fails.
+
+        Args:
+            task: The task that failed
+            max_attempts: Maximum attempts configured
+
+        Returns:
+            User's choice: 'retry', 'skip', or 'abort'
+        """
+        click.echo("\n" + "=" * 60)
+        click.secho("⚠ MANUAL INTERVENTION REQUIRED", fg="red", bold=True)
+        click.echo("=" * 60)
+
+        click.echo(f"\nTask: {task.title}")
+        click.echo(f"ID: {task.id}")
+        click.echo(f"Status: Failed after {max_attempts} attempts")
+
+        # Display attempt summary
+        click.echo("\nAttempt Summary:")
+        click.echo(f"  Total attempts: {task.attempt_count}")
+        click.echo(f"  Failures: {task.failure_count}")
+
+        # Display non-progress count if any
+        non_progress = self.state.get_non_progress_count(task.id)
+        if non_progress > 0:
+            click.secho(
+                f"  Non-progress attempts: {non_progress} (no code changes made)",
+                fg="yellow",
+            )
+
+        # Display last error if available
+        last_error = self.state.get_last_error(task.id)
+        if last_error:
+            click.echo(f"\nLast error: {last_error}")
+
+        # Display options
+        click.echo("\n" + "-" * 60)
+        click.echo("What would you like to do?")
+        click.echo("  [R]etry - Try this task one more time")
+        click.echo("  [S]kip  - Skip this task and continue with next task")
+        click.echo("  [A]bort - Stop execution and exit")
+        click.echo("-" * 60)
+
+        # Get user input
+        while True:
+            choice = click.prompt(
+                "\nYour choice",
+                type=click.Choice(["R", "r", "S", "s", "A", "a"], case_sensitive=False),
+                show_choices=False,
+            ).upper()
+
+            if choice == "R":
+                return "retry"
+            elif choice == "S":
+                return "skip"
+            elif choice == "A":
+                return "abort"
 
     def _save_response_log(self, task: Task, prompt_components, response) -> None:
         """
