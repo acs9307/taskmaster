@@ -67,6 +67,11 @@ def main(ctx):
     is_flag=True,
     help="Automatically apply code changes from agent responses",
 )
+@click.option(
+    "--ignore-config-limits",
+    is_flag=True,
+    help="Ignore configured rate limits (not recommended)",
+)
 @click.pass_context
 def run(
     ctx,
@@ -76,6 +81,7 @@ def run(
     provider: Optional[str],
     resume: bool,
     auto_apply: bool,
+    ignore_config_limits: bool,
 ) -> None:
     """
     Run tasks from a task list file.
@@ -102,6 +108,7 @@ def run(
         provider=provider,
         resume=resume,
         auto_apply=auto_apply,
+        ignore_config_limits=ignore_config_limits,
     )
 
     # Exit with appropriate code

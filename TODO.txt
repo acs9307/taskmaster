@@ -196,7 +196,7 @@ Goal: If tests keep failing for a task, the app should stop automatically and as
 Epic 6 — Rate Limit & Quota Handling (Hourly / Weekly)
 
 Goal: Handle agent hourly/weekly token or request limits automatically and resume when limits reset.
-	•	⬜ Task 6.1 — Rate limit configuration
+	•	✅ Task 6.1 — Rate limit configuration
 	•	Config options per provider:
 
 rate_limits:

@@ -48,6 +48,7 @@ class TestRunCommand:
         assert "--dry-run" in result.output
         assert "--stop-on-first-failure" in result.output
         assert "--provider" in result.output
+        assert "--ignore-config-limits" in result.output
 
     def test_run_with_valid_file(self):
         """Test run command with valid file."""
@@ -115,6 +116,28 @@ tasks:
         try:
             result = self.runner.invoke(
                 main, ["run", str(task_file), "--stop-on-first-failure", "--dry-run"]
+            )
+            assert result.exit_code == 0
+        finally:
+            task_file.unlink()
+
+    def test_run_ignore_config_limits_flag(self):
+        """Test run command with --ignore-config-limits flag."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
+            f.write(
+                """
+tasks:
+  - id: T1
+    title: Test task
+    description: A test task
+"""
+            )
+            f.flush()
+            task_file = Path(f.name)
+
+        try:
+            result = self.runner.invoke(
+                main, ["run", str(task_file), "--ignore-config-limits", "--dry-run"]
             )
             assert result.exit_code == 0
         finally:

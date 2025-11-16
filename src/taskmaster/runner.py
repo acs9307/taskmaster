@@ -36,6 +36,7 @@ class TaskRunner:
         log_dir: Optional[Path] = None,
         auto_apply_changes: bool = False,
         stop_on_first_failure: bool = False,
+        ignore_config_limits: bool = False,
         config: Optional[Config] = None,
     ):
         """
@@ -51,6 +52,7 @@ class TaskRunner:
             log_dir: Directory to store agent response logs (defaults to .taskmaster/logs)
             auto_apply_changes: If True, automatically apply code changes from agent responses
             stop_on_first_failure: If True, prompt user immediately on first post-hook failure
+            ignore_config_limits: If True, ignore configured rate limits (not recommended)
             config: Optional TaskMaster configuration (for hooks)
         """
         self.task_list = task_list
@@ -61,6 +63,7 @@ class TaskRunner:
         self.log_dir = log_dir or Path(".taskmaster") / "logs"
         self.auto_apply_changes = auto_apply_changes
         self.stop_on_first_failure = stop_on_first_failure
+        self.ignore_config_limits = ignore_config_limits
         self.config = config
         self.prompt_builder = PromptBuilder()
 
@@ -584,6 +587,7 @@ def run_tasks(
     provider: Optional[str] = None,
     resume: bool = False,
     auto_apply: bool = False,
+    ignore_config_limits: bool = False,
 ) -> bool:
     """
     Run tasks from a task list file.
@@ -595,6 +599,7 @@ def run_tasks(
         provider: Provider override (overrides active_provider from config)
         resume: If True, resume from saved state
         auto_apply: If True, automatically apply code changes from agent responses
+        ignore_config_limits: If True, ignore configured rate limits (not recommended)
 
     Returns:
         True if execution completed successfully, False otherwise
@@ -675,6 +680,7 @@ def run_tasks(
         provider_name=provider_name,
         auto_apply_changes=auto_apply,
         stop_on_first_failure=stop_on_first_failure,
+        ignore_config_limits=ignore_config_limits,
         config=config,
     )
     success = runner.run()
