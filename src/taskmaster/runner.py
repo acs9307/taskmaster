@@ -1,13 +1,14 @@
 """Task runner for sequential task execution."""
 
 import json
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import click
 
-from taskmaster.agent_client import AgentClient, AgentError, CompletionRequest
+from taskmaster.agent_client import AgentClient, AgentError, CompletionRequest, RateLimitError
 from taskmaster.change_applier import ChangeApplier
 from taskmaster.config import Config
 from taskmaster.git_utils import get_git_diff, has_changes
@@ -383,9 +384,65 @@ class TaskRunner:
                         # Exit gracefully - the run will fail but state is saved
                         return False
 
-            # Call agent
+            # Call agent with retry logic for rate limit errors
             click.secho(f"⚙  Calling agent ({self.provider_name})...", fg="yellow")
-            response = self.agent_client.generate_completion(request)
+
+            max_retries = self.config.max_rate_limit_retries if self.config else 5
+            max_backoff = self.config.max_backoff_seconds if self.config else 300
+            retry_count = 0
+            base_backoff = 2  # Start with 2 seconds
+
+            while True:
+                try:
+                    response = self.agent_client.generate_completion(request)
+
+                    # Success - break out of retry loop
+                    if retry_count > 0:
+                        click.secho(f"  ✓ Call succeeded after {retry_count} retries", fg="green")
+                    break
+
+                except RateLimitError as e:
+                    retry_count += 1
+
+                    if retry_count > max_retries:
+                        # Exceeded max retries - give up
+                        click.echo()
+                        click.secho("⚠ RATE LIMIT EXCEEDED", fg="red", bold=True)
+                        click.echo("=" * 60)
+                        click.echo(f"Provider: {self.provider_name}")
+                        click.echo(f"Retries attempted: {retry_count - 1}")
+                        click.echo()
+                        click.echo("The API rate limit has been exceeded and automatic")
+                        click.echo("retries have been exhausted. Please try again later.")
+                        click.echo()
+                        if e.retry_after:
+                            click.echo(f"Provider suggests waiting {e.retry_after} seconds")
+                        click.echo("=" * 60)
+
+                        # Save state before exiting
+                        from taskmaster.state import save_state
+
+                        save_state(self.state)
+
+                        raise  # Re-raise to be caught by outer exception handler
+
+                    # Calculate backoff time
+                    if e.retry_after:
+                        # Respect Retry-After header from provider
+                        wait_time = min(e.retry_after, max_backoff)
+                        click.secho(
+                            f"  ⚠ Rate limit hit. Retrying in {wait_time}s (from Retry-After header)",
+                            fg="yellow",
+                        )
+                    else:
+                        # Exponential backoff: 2, 4, 8, 16, 32, ... (capped at max_backoff)
+                        wait_time = min(base_backoff * (2 ** (retry_count - 1)), max_backoff)
+                        click.secho(
+                            f"  ⚠ Rate limit hit. Retrying in {wait_time}s (attempt {retry_count}/{max_retries})",
+                            fg="yellow",
+                        )
+
+                    time.sleep(wait_time)
 
             # Record usage after successful call
             if self.provider_name and response:

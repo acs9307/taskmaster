@@ -222,7 +222,7 @@ rate_limits:
 	•	Save state and exit with a clear message:
 	•	"Rate limit reached, safe to re-run after YYYY-MM-DD HH:MM".
 	•	Ensure agent-runner resume picks up seamlessly and continues.
-	•	⬜ Task 6.4 — Handling 429 / provider-level limits
+	•	✅ Task 6.4 — Handling 429 / provider-level limits
 	•	If API returns a rate-limit error (e.g. HTTP 429):
 	•	Respect Retry-After headers if present.
 	•	Implement exponential backoff with a max backoff window.

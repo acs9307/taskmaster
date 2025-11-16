@@ -136,6 +136,8 @@ class Config:
         log_dir: Directory for log files
         max_attempts_per_task: Maximum retry attempts per task
         max_consecutive_failures: Maximum consecutive failures before escalation
+        max_rate_limit_retries: Maximum retries for rate limit (429) errors
+        max_backoff_seconds: Maximum backoff time in seconds (for exponential backoff)
         metadata: Additional user-defined metadata
     """
 
@@ -147,6 +149,8 @@ class Config:
     log_dir: str = "logs"
     max_attempts_per_task: int = 3
     max_consecutive_failures: int = 3
+    max_rate_limit_retries: int = 5
+    max_backoff_seconds: int = 300
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def get_active_provider_config(self) -> Optional[ProviderConfig]:
