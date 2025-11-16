@@ -1,0 +1,47 @@
+# TaskMaster Configuration - Small Project Example
+#
+# This configuration sets up TaskMaster for a simple Python project
+# with Claude as the AI provider and pytest for testing.
+
+# Provider Configuration
+provider_configs:
+  claude:
+    type: claude
+    # API key should be set via environment variable
+    api_key: ${ANTHROPIC_API_KEY}
+    model: claude-3-5-sonnet-20241022
+    temperature: 0.7
+    max_tokens: 4096
+
+    # Rate limits to stay within free tier / prevent excessive usage
+    rate_limits:
+      max_requests_minute: 5
+      max_tokens_hour: 100000
+      max_tokens_day: 500000
+
+# Active provider
+active_provider: claude
+
+# Hook Definitions
+hooks:
+  test:
+    command: pytest tests/ -v
+    timeout: 300
+    stop_on_failure: true
+    description: Run pytest test suite
+
+  lint:
+    command: ruff check src/
+    timeout: 60
+    stop_on_failure: false
+    description: Run ruff linter
+
+# Hook Defaults
+hook_defaults:
+  # By default, run tests after every task
+  post_hooks:
+    - test
+
+# General Settings
+max_attempts_per_task: 3
+max_consecutive_failures: 2

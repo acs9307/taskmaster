@@ -1,0 +1,7 @@
+# Minimal Task List Example
+# Demonstrates the minimum required fields
+
+tasks:
+  - id: simple-task
+    title: Simple task example
+    description: This task demonstrates the minimal required fields for a task.

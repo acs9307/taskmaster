@@ -1,0 +1,25 @@
+# Include documentation files
+include README.md
+include QUICKSTART.md
+include LICENSE
+include CONTRIBUTING.md
+include TODO.txt
+
+# Include examples directory
+recursive-include examples *.yml *.md
+
+# Include documentation directory
+recursive-include docs *.md
+
+# Include configuration examples
+include .taskmaster.yml.example
+
+# Exclude cache and build artifacts
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .pytest_cache
+global-exclude .ruff_cache
+global-exclude *.egg-info
+
+# Exclude test files from distribution
+prune tests

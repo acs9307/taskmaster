@@ -1,0 +1,10 @@
+# Minimal TaskMaster Configuration
+# Place at ~/.taskmaster/config.yml or ./.taskmaster.yml
+
+active_provider: claude
+
+providers:
+  claude:
+    provider: claude
+    api_key: $ANTHROPIC_API_KEY
+    model: claude-3-5-sonnet-20241022

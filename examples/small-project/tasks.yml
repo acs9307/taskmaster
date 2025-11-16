@@ -1,0 +1,42 @@
+# Small Project Example - Task List
+#
+# This example demonstrates a simple 3-task workflow for a small Python project.
+# Each task builds on the previous one to implement a complete feature.
+
+tasks:
+  - id: task-1
+    title: Implement user authentication
+    description: |
+      Create a User model and authentication system with the following requirements:
+      - User model with email and password fields
+      - Password hashing using bcrypt
+      - Login and logout functions
+      - JWT token generation for authenticated sessions
+    path: src/auth/
+    post_hooks:
+      - test
+
+  - id: task-2
+    title: Add user registration endpoint
+    description: |
+      Create a REST API endpoint for user registration:
+      - POST /api/register endpoint
+      - Validate email format and password strength
+      - Check for duplicate emails
+      - Return JWT token on successful registration
+    path: src/api/
+    post_hooks:
+      - test
+
+  - id: task-3
+    title: Add password reset functionality
+    description: |
+      Implement password reset flow:
+      - Generate secure reset tokens
+      - Send reset email (mock for now)
+      - Validate reset tokens with expiration
+      - Update password and invalidate token
+    path: src/auth/
+    post_hooks:
+      - test
+      - lint

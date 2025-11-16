@@ -1,0 +1,127 @@
+# TaskMaster Configuration - Monorepo Example
+#
+# This configuration demonstrates how to use TaskMaster in a monorepo
+# with multiple services (API, Frontend, Workers) that have different
+# testing and linting requirements.
+
+# Provider Configuration
+provider_configs:
+  claude:
+    type: claude
+    api_key: ${ANTHROPIC_API_KEY}
+    model: claude-3-5-sonnet-20241022
+    temperature: 0.7
+    max_tokens: 8192
+
+    rate_limits:
+      max_requests_minute: 10
+      max_tokens_hour: 200000
+      max_tokens_day: 1000000
+
+  openai:
+    type: openai
+    api_key: ${OPENAI_API_KEY}
+    model: gpt-4
+    temperature: 0.7
+    max_tokens: 4096
+
+    rate_limits:
+      max_requests_minute: 20
+      max_tokens_hour: 150000
+
+active_provider: claude
+
+# Hook Definitions
+# Each service has its own set of hooks
+
+hooks:
+  # API Service Hooks (Python/FastAPI)
+  api-lint:
+    command: cd services/api && ruff check src/
+    timeout: 60
+    stop_on_failure: false
+    description: Lint API service code
+
+  api-test:
+    command: cd services/api && pytest tests/unit -v
+    timeout: 300
+    stop_on_failure: true
+    description: Run API unit tests
+
+  api-integration-test:
+    command: cd services/api && pytest tests/integration -v --maxfail=3
+    timeout: 600
+    stop_on_failure: true
+    description: Run API integration tests
+
+  api-benchmark:
+    command: cd services/api && pytest tests/benchmarks -v --benchmark-only
+    timeout: 300
+    stop_on_failure: false
+    description: Run performance benchmarks
+
+  # Frontend Service Hooks (React/TypeScript)
+  frontend-lint:
+    command: cd services/frontend && npm run lint
+    timeout: 120
+    stop_on_failure: false
+    description: Lint frontend code with ESLint
+
+  frontend-test:
+    command: cd services/frontend && npm test -- --coverage
+    timeout: 300
+    stop_on_failure: true
+    description: Run frontend tests with Jest
+
+  frontend-build:
+    command: cd services/frontend && npm run build
+    timeout: 300
+    stop_on_failure: true
+    description: Build frontend for production
+
+  frontend-type-check:
+    command: cd services/frontend && npm run type-check
+    timeout: 120
+    stop_on_failure: true
+    description: TypeScript type checking
+
+  # Worker Service Hooks (Python/Celery)
+  worker-test:
+    command: cd services/workers && pytest tests/ -v
+    timeout: 300
+    stop_on_failure: true
+    description: Run worker tests
+
+  worker-lint:
+    command: cd services/workers && ruff check src/
+    timeout: 60
+    stop_on_failure: false
+    description: Lint worker code
+
+  # Shared/Infrastructure Hooks
+  docker-build:
+    command: docker-compose build
+    timeout: 600
+    stop_on_failure: false
+    description: Build all Docker images
+
+  e2e-test:
+    command: npm run test:e2e
+    timeout: 900
+    stop_on_failure: false
+    description: Run end-to-end tests across all services
+
+# Hook Defaults
+# These are fallback hooks, but tasks can override them
+hook_defaults:
+  post_hooks: []  # No default hooks - each task specifies its own
+
+# General Settings
+max_attempts_per_task: 3
+max_consecutive_failures: 3
+
+# Metadata (for organizational purposes)
+metadata:
+  project: analytics-platform
+  repo: github.com/example/analytics-monorepo
+  team: engineering

@@ -1,0 +1,106 @@
+# TaskMaster Configuration Example
+#
+# Copy this file to .taskmaster.yml and customize for your project.
+# This can be placed in:
+#   - Project root: ./.taskmaster.yml (project-specific)
+#   - Home directory: ~/.taskmaster/config.yml (global default)
+
+# Provider Configuration
+provider_configs:
+  # Claude (Anthropic) Configuration
+  claude:
+    type: claude
+    api_key: ${ANTHROPIC_API_KEY}  # Use environment variable
+    model: claude-3-5-sonnet-20241022
+    temperature: 0.7
+    max_tokens: 4096
+
+    # Rate limits (adjust based on your API tier)
+    rate_limits:
+      max_requests_minute: 10
+      max_tokens_hour: 100000
+      max_tokens_day: 500000
+
+  # OpenAI Configuration
+  openai:
+    type: openai
+    api_key: ${OPENAI_API_KEY}  # Use environment variable
+    model: gpt-4
+    temperature: 0.7
+    max_tokens: 4096
+
+    # Rate limits (adjust based on your API tier)
+    rate_limits:
+      max_requests_minute: 20
+      max_tokens_hour: 150000
+
+# Active Provider (claude or openai)
+active_provider: claude
+
+# Hook Definitions
+# Hooks are commands that run before or after tasks
+hooks:
+  # Test hook - runs test suite
+  test:
+    command: pytest tests/ -v
+    timeout: 300  # seconds
+    stop_on_failure: true  # Stop execution if this hook fails
+    description: Run test suite
+
+  # Lint hook - check code quality
+  lint:
+    command: ruff check src/
+    timeout: 60
+    stop_on_failure: false  # Continue even if linting fails
+    description: Run linter
+
+  # Format hook - auto-format code
+  format:
+    command: ruff format src/
+    timeout: 60
+    stop_on_failure: false
+    description: Format code
+
+  # Type check hook - verify type annotations
+  type-check:
+    command: mypy src/
+    timeout: 120
+    stop_on_failure: false
+    description: Run type checker
+
+  # Build hook - build project
+  build:
+    command: npm run build  # or: python -m build
+    timeout: 600
+    stop_on_failure: true
+    description: Build project
+
+  # Coverage hook - test with coverage
+  coverage:
+    command: pytest tests/ --cov=src --cov-report=html
+    timeout: 300
+    stop_on_failure: true
+    description: Run tests with coverage
+
+# Hook Defaults
+# These hooks apply to all tasks unless overridden
+hook_defaults:
+  # Run before every task
+  pre_hooks: []
+
+  # Run after every task
+  post_hooks:
+    - test
+
+# Failure Handling Settings
+# Maximum number of attempts per task before escalating to user
+max_attempts_per_task: 3
+
+# Maximum consecutive failures before stopping
+max_consecutive_failures: 2
+
+# Metadata (optional - for organizational purposes)
+metadata:
+  project: my-project
+  team: engineering
+  version: 1.0.0

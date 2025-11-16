@@ -1,0 +1,56 @@
+{
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Setup project skeleton",
+      "description": "Create initial project layout with src/, tests/, and docs/ directories. Set up basic configuration files and package structure.",
+      "path": "./my-project",
+      "metadata": {
+        "priority": "high",
+        "estimated_time": "30m"
+      },
+      "pre_hooks": ["install-deps"],
+      "post_hooks": ["run-tests", "lint-code"]
+    },
+    {
+      "id": "T2",
+      "title": "Implement core API",
+      "description": "Build the main API endpoints including authentication, user management, and data access layers.",
+      "path": "./my-project",
+      "metadata": {
+        "priority": "high",
+        "estimated_time": "2h"
+      },
+      "pre_hooks": ["check-db"],
+      "post_hooks": ["run-tests", "run-integration-tests"]
+    },
+    {
+      "id": "T3",
+      "title": "Add documentation",
+      "description": "Write comprehensive API documentation including endpoint descriptions, request/response examples, and authentication guide.",
+      "path": "./my-project/docs",
+      "metadata": {
+        "priority": "medium",
+        "estimated_time": "1h"
+      },
+      "post_hooks": ["validate-docs"]
+    },
+    {
+      "id": "T4",
+      "title": "Deploy to staging",
+      "description": "Deploy the application to staging environment for testing. Run smoke tests to ensure everything works correctly.",
+      "path": "./my-project",
+      "metadata": {
+        "priority": "high",
+        "estimated_time": "45m"
+      },
+      "pre_hooks": ["run-tests", "build-docker"],
+      "post_hooks": ["smoke-tests"]
+    }
+  ],
+  "dependencies": {
+    "T2": ["T1"],
+    "T3": ["T2"],
+    "T4": ["T2", "T3"]
+  }
+}
