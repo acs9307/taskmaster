@@ -296,7 +296,7 @@ Goal: Make it easy to install, configure, and understand the app.
 	•	Create a tasks.yml.
 	•	Configure provider and hooks.
 	•	Run agent-runner run.
-	•	⬜ Task 9.3 — Advanced usage docs
+	•	✅ Task 9.3 — Advanced usage docs
 	•	Document:
 	•	Rate limit config.
 	•	Fail-safe behavior and override flags.

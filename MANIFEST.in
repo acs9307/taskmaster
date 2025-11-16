@@ -8,6 +8,9 @@ include TODO.txt
 # Include examples directory
 recursive-include examples *.yml *.md
 
+# Include documentation directory
+recursive-include docs *.md
+
 # Include configuration examples
 include .taskmaster.yml.example
 

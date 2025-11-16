@@ -198,8 +198,11 @@ taskmaster/
 ├── examples/                   # Example configurations
 │   ├── small-project/          # Simple project example
 │   └── monorepo/               # Monorepo example
+├── docs/                       # Advanced documentation
+│   └── ADVANCED_USAGE.md       # Advanced features guide
 ├── pyproject.toml              # Package configuration
-└── README.md                   # This file
+├── README.md                   # This file
+└── QUICKSTART.md               # Quickstart guide
 ```
 
 ## Dependencies
@@ -324,6 +327,15 @@ See [examples/monorepo/README.md](examples/monorepo/README.md)
 - [All Examples Overview](examples/README.md)
 
 ## Advanced Features
+
+> **For comprehensive advanced documentation**, see [Advanced Usage Guide](docs/ADVANCED_USAGE.md) covering:
+> - Rate limiting configuration and strategies
+> - Fail-safe behavior and override flags
+> - State management and resume functionality
+> - Custom prompt templates
+> - Hook configuration patterns
+> - CI/CD integration examples
+> - Performance tuning
 
 ### Failure Handling
 
@@ -503,9 +515,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Links
 
-- **Documentation**: [GitHub Wiki](https://github.com/acs9307/taskmaster/wiki) (coming soon)
+- **Documentation**:
+  - [Quickstart Guide](QUICKSTART.md) - Step-by-step tutorial for beginners
+  - [Advanced Usage Guide](docs/ADVANCED_USAGE.md) - In-depth feature documentation
+  - [Examples](examples/) - Sample configurations and use cases
 - **Issue Tracker**: [GitHub Issues](https://github.com/acs9307/taskmaster/issues)
-- **Examples**: [examples/](examples/)
 - **PyPI Package**: [pypi.org/project/taskmaster](https://pypi.org/project/taskmaster/) (coming soon)
 
 ## Support
