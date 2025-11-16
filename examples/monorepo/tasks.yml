@@ -1,0 +1,104 @@
+# Monorepo Example - Task List
+#
+# This example demonstrates TaskMaster in a monorepo environment with multiple
+# services (API, Frontend, Workers) that have different testing requirements.
+
+tasks:
+  # Backend API Tasks
+  - id: api-1
+    title: Add user analytics endpoint
+    description: |
+      Create a new REST API endpoint for user analytics:
+      - GET /api/v1/analytics/users endpoint
+      - Aggregate user activity data from database
+      - Return metrics: active users, new signups, retention rate
+      - Add proper error handling and validation
+      - Document endpoint in API spec
+    path: services/api/src/endpoints/
+    pre_hooks:
+      - api-lint
+    post_hooks:
+      - api-test
+      - api-integration-test
+
+  - id: api-2
+    title: Optimize database queries for analytics
+    description: |
+      Improve performance of analytics queries:
+      - Add database indexes for common analytics queries
+      - Implement query result caching with Redis
+      - Add database query timeout limits
+      - Optimize JOIN operations
+    path: services/api/src/database/
+    post_hooks:
+      - api-test
+      - api-benchmark
+
+  # Frontend Tasks
+  - id: frontend-1
+    title: Create analytics dashboard component
+    description: |
+      Build a React component to display user analytics:
+      - Create AnalyticsDashboard component with charts
+      - Fetch data from /api/v1/analytics/users
+      - Add loading states and error handling
+      - Make responsive for mobile and desktop
+      - Add unit tests with React Testing Library
+    path: services/frontend/src/components/
+    pre_hooks:
+      - frontend-lint
+    post_hooks:
+      - frontend-test
+      - frontend-build
+
+  - id: frontend-2
+    title: Add real-time analytics updates
+    description: |
+      Implement WebSocket connection for live analytics:
+      - Connect to WebSocket endpoint
+      - Update dashboard when new data arrives
+      - Add reconnection logic
+      - Handle connection errors gracefully
+    path: services/frontend/src/components/
+    post_hooks:
+      - frontend-test
+
+  # Worker Tasks
+  - id: worker-1
+    title: Create daily analytics aggregation job
+    description: |
+      Implement background job to aggregate daily analytics:
+      - Create scheduled job that runs at midnight UTC
+      - Aggregate user activity for previous day
+      - Store results in analytics table
+      - Send summary email to admins
+      - Add error logging and monitoring
+    path: services/workers/src/jobs/
+    post_hooks:
+      - worker-test
+
+  - id: worker-2
+    title: Add analytics data cleanup job
+    description: |
+      Create job to cleanup old analytics data:
+      - Delete raw event data older than 90 days
+      - Archive aggregated data older than 1 year
+      - Run daily at 2am UTC
+      - Add progress tracking and logs
+    path: services/workers/src/jobs/
+    post_hooks:
+      - worker-test
+
+  # Infrastructure Tasks
+  - id: infra-1
+    title: Add Prometheus metrics for analytics
+    description: |
+      Instrument analytics endpoints with Prometheus:
+      - Add request count and latency metrics
+      - Add custom business metrics (active users, etc.)
+      - Create Grafana dashboard configuration
+      - Document metrics in README
+    path: services/api/src/monitoring/
+    metadata:
+      team: infrastructure
+      priority: medium

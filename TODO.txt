@@ -276,10 +276,10 @@ Goal: Make the tool nice to use from a terminal and easy to integrate into dev w
 	•	Implement --dry-run flag:
 	•	Show which tasks would run, which hooks would execute, and estimated agent calls.
 	•	Do not actually call the agent or run hooks.
-	•	⬜ Task 8.4 — Integration examples
+	•	✅ Task 8.4 — Integration examples
 	•	Provide example setups:
-	•	“Small project” example with 3 tasks and simple pytest hook.
-	•	“Monorepo” example with different hooks per task.
+	•	"Small project" example with 3 tasks and simple pytest hook.
+	•	"Monorepo" example with different hooks per task.
 
 ⸻
 
