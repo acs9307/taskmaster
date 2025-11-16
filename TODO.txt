@@ -163,7 +163,7 @@ hooks:
 Epic 5 — Fail-Safe & Failure Escalation
 
 Goal: If tests keep failing for a task, the app should stop automatically and ask for user input instead of looping forever.
-	•	⬜ Task 5.1 — Failure count & thresholds
+	•	✅ Task 5.1 — Failure count & thresholds
 	•	Track per-task:
 	•	Number of post-hook failures.
 	•	Number of times agent attempted a fix.

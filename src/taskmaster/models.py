@@ -30,6 +30,7 @@ class Task:
         post_hooks: List of hook IDs to run after agent execution
         status: Current status of the task
         failure_count: Number of times this task has failed
+        attempt_count: Number of times this task has been attempted
     """
 
     id: str
@@ -41,6 +42,7 @@ class Task:
     post_hooks: list[str] = field(default_factory=list)
     status: TaskStatus = TaskStatus.PENDING
     failure_count: int = 0
+    attempt_count: int = 0
 
     def mark_completed(self) -> None:
         """Mark the task as completed."""
@@ -58,6 +60,14 @@ class Task:
     def mark_skipped(self) -> None:
         """Mark the task as skipped."""
         self.status = TaskStatus.SKIPPED
+
+    def increment_attempt(self) -> None:
+        """Increment the attempt counter for this task."""
+        self.attempt_count += 1
+
+    def reset_for_retry(self) -> None:
+        """Reset task status to pending for retry (preserves failure/attempt counts)."""
+        self.status = TaskStatus.PENDING
 
 
 @dataclass

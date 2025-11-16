@@ -25,6 +25,7 @@ class TestRunState:
         assert state.completed_task_ids == []
         assert state.current_task_index == 0
         assert state.failure_counts == {}
+        assert state.attempt_counts == {}
         assert state.last_errors == {}
         assert state.created_at is not None
         assert state.updated_at is not None
@@ -122,6 +123,48 @@ class TestRunState:
         assert state.get_last_error("T1") == "Test error"
         assert state.get_last_error("T2") is None
 
+    def test_increment_attempt_count(self):
+        """Test incrementing attempt count."""
+        state = RunState(task_file="tasks.yml")
+        state.increment_attempt_count("T1")
+
+        assert state.attempt_counts["T1"] == 1
+
+    def test_increment_attempt_count_multiple_times(self):
+        """Test incrementing attempt count multiple times."""
+        state = RunState(task_file="tasks.yml")
+        state.increment_attempt_count("T1")
+        state.increment_attempt_count("T1")
+        state.increment_attempt_count("T1")
+
+        assert state.attempt_counts["T1"] == 3
+
+    def test_get_attempt_count(self):
+        """Test getting attempt count for a task."""
+        state = RunState(task_file="tasks.yml")
+        state.increment_attempt_count("T1")
+        state.increment_attempt_count("T1")
+
+        assert state.get_attempt_count("T1") == 2
+        assert state.get_attempt_count("T2") == 0
+
+    def test_attempt_count_independent_of_failure_count(self):
+        """Test that attempt count and failure count are independent."""
+        state = RunState(task_file="tasks.yml")
+
+        # Three attempts, two failures
+        state.increment_attempt_count("T1")
+        state.increment_failure_count("T1", "First failure")
+
+        state.increment_attempt_count("T1")
+        state.increment_failure_count("T1", "Second failure")
+
+        state.increment_attempt_count("T1")
+        # Third attempt succeeds (no failure increment)
+
+        assert state.get_attempt_count("T1") == 3
+        assert state.get_failure_count("T1") == 2
+
     def test_to_dict(self):
         """Test converting state to dictionary."""
         state = RunState(
@@ -144,6 +187,7 @@ class TestRunState:
             "completed_task_ids": ["T1", "T2"],
             "current_task_index": 2,
             "failure_counts": {"T3": 1},
+            "attempt_counts": {"T3": 2},
             "last_errors": {"T3": "Error"},
             "created_at": "2024-01-01T00:00:00",
             "updated_at": "2024-01-01T01:00:00",
@@ -154,6 +198,7 @@ class TestRunState:
         assert state.completed_task_ids == ["T1", "T2"]
         assert state.current_task_index == 2
         assert state.failure_counts == {"T3": 1}
+        assert state.attempt_counts == {"T3": 2}
         assert state.last_errors == {"T3": "Error"}
         assert state.created_at == "2024-01-01T00:00:00"
         assert state.updated_at == "2024-01-01T01:00:00"
@@ -314,6 +359,7 @@ class TestStateFileOperations:
                 completed_task_ids=["T1", "T2", "T3"],
                 current_task_index=3,
                 failure_counts={"T4": 2, "T5": 1},
+                attempt_counts={"T4": 3, "T5": 2},
                 last_errors={"T4": "Error A", "T5": "Error B"},
             )
 
@@ -326,6 +372,7 @@ class TestStateFileOperations:
             assert loaded.completed_task_ids == original.completed_task_ids
             assert loaded.current_task_index == original.current_task_index
             assert loaded.failure_counts == original.failure_counts
+            assert loaded.attempt_counts == original.attempt_counts
             assert loaded.last_errors == original.last_errors
 
     def test_state_file_format(self):
@@ -348,6 +395,7 @@ class TestStateFileOperations:
             assert "completed_task_ids" in data
             assert "current_task_index" in data
             assert "failure_counts" in data
+            assert "attempt_counts" in data
             assert "last_errors" in data
             assert "created_at" in data
             assert "updated_at" in data

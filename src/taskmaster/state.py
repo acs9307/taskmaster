@@ -21,6 +21,7 @@ class RunState:
     completed_task_ids: list[str] = field(default_factory=list)
     current_task_index: int = 0
     failure_counts: dict[str, int] = field(default_factory=dict)
+    attempt_counts: dict[str, int] = field(default_factory=dict)
     last_errors: dict[str, str] = field(default_factory=dict)
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -46,6 +47,11 @@ class RunState:
             self.last_errors[task_id] = error_message
         self.updated_at = datetime.utcnow().isoformat()
 
+    def increment_attempt_count(self, task_id: str):
+        """Increment attempt count for a task."""
+        self.attempt_counts[task_id] = self.attempt_counts.get(task_id, 0) + 1
+        self.updated_at = datetime.utcnow().isoformat()
+
     def advance_to_next_task(self):
         """Move to the next task."""
         self.current_task_index += 1
@@ -58,6 +64,10 @@ class RunState:
     def get_failure_count(self, task_id: str) -> int:
         """Get the failure count for a task."""
         return self.failure_counts.get(task_id, 0)
+
+    def get_attempt_count(self, task_id: str) -> int:
+        """Get the attempt count for a task."""
+        return self.attempt_counts.get(task_id, 0)
 
     def get_last_error(self, task_id: str) -> Optional[str]:
         """Get the last error message for a task."""

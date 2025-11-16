@@ -108,6 +108,9 @@ class TaskRunner:
 
         all_successful = True
 
+        # Get max attempts from config
+        max_attempts = self.config.max_attempts_per_task if self.config else 3
+
         # Start from the current task index (for resume support)
         start_index = self.state.current_task_index
         for i in range(start_index, len(self.task_list.tasks)):
@@ -125,20 +128,60 @@ class TaskRunner:
                 click.echo("Task already completed in previous run")
                 continue
 
-            click.echo("-" * 60)
-            success = self._run_task(task, task_num, total_tasks)
+            # Retry loop for failed tasks
+            while True:
+                # Increment attempt counter
+                task.increment_attempt()
+                self.state.increment_attempt_count(task.id)
 
-            if success:
-                # Mark task as completed in state and save
-                self.state.mark_task_completed(task.id)
-                self.state.current_task_index = i + 1
-                if not self.dry_run:
-                    save_state(self.state)
-            else:
-                all_successful = False
-                # Save state even on failure
-                if not self.dry_run:
-                    save_state(self.state)
+                attempt_num = task.attempt_count
+
+                click.echo("-" * 60)
+                if attempt_num > 1:
+                    click.secho(
+                        f"\n[RETRY {attempt_num}/{max_attempts}] Task {task_num}/{total_tasks}: {task.title}",
+                        fg="yellow",
+                        bold=True,
+                    )
+
+                success = self._run_task(task, task_num, total_tasks)
+
+                if success:
+                    # Mark task as completed in state and save
+                    self.state.mark_task_completed(task.id)
+                    self.state.current_task_index = i + 1
+                    if not self.dry_run:
+                        save_state(self.state)
+                    break  # Exit retry loop on success
+                else:
+                    # Task failed
+                    self.state.increment_failure_count(task.id, "Task execution failed")
+
+                    # Check if we should retry
+                    if attempt_num < max_attempts:
+                        click.secho(
+                            f"\n⚠ Task failed (attempt {attempt_num}/{max_attempts}), retrying...",
+                            fg="yellow",
+                        )
+                        # Reset task for retry
+                        task.reset_for_retry()
+                        if not self.dry_run:
+                            save_state(self.state)
+                        # Continue to next iteration of retry loop
+                    else:
+                        # Max attempts reached
+                        click.secho(
+                            f"\n✗ Task failed after {max_attempts} attempts - stopping execution",
+                            fg="red",
+                            bold=True,
+                        )
+                        all_successful = False
+                        if not self.dry_run:
+                            save_state(self.state)
+                        break  # Exit retry loop
+
+            # If task ultimately failed, stop execution
+            if not success:
                 break
 
         click.echo("\n" + "=" * 60)

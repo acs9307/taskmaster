@@ -29,6 +29,7 @@ class TestTask:
         assert task.path == "/tmp/project"
         assert task.status == TaskStatus.PENDING
         assert task.failure_count == 0
+        assert task.attempt_count == 0
 
     def test_task_with_hooks(self):
         """Test task with pre and post hooks."""
@@ -80,6 +81,60 @@ class TestTask:
         task = Task(id="T7", title="Test", description="Test task")
         task.mark_skipped()
         assert task.status == TaskStatus.SKIPPED
+
+    def test_increment_attempt(self):
+        """Test incrementing task attempt counter."""
+        task = Task(id="T8", title="Test", description="Test task")
+        assert task.attempt_count == 0
+
+        task.increment_attempt()
+        assert task.attempt_count == 1
+
+        task.increment_attempt()
+        assert task.attempt_count == 2
+
+    def test_reset_for_retry(self):
+        """Test resetting task for retry."""
+        task = Task(id="T9", title="Test", description="Test task")
+
+        # Simulate a failed attempt
+        task.increment_attempt()
+        task.mark_failed()
+        assert task.status == TaskStatus.FAILED
+        assert task.failure_count == 1
+        assert task.attempt_count == 1
+
+        # Reset for retry
+        task.reset_for_retry()
+        assert task.status == TaskStatus.PENDING
+        # Counts should be preserved
+        assert task.failure_count == 1
+        assert task.attempt_count == 1
+
+    def test_multiple_attempts_and_failures(self):
+        """Test tracking multiple attempts and failures."""
+        task = Task(id="T10", title="Test", description="Test task")
+
+        # First attempt fails
+        task.increment_attempt()
+        task.mark_failed()
+        assert task.attempt_count == 1
+        assert task.failure_count == 1
+
+        # Second attempt fails
+        task.reset_for_retry()
+        task.increment_attempt()
+        task.mark_failed()
+        assert task.attempt_count == 2
+        assert task.failure_count == 2
+
+        # Third attempt succeeds
+        task.reset_for_retry()
+        task.increment_attempt()
+        task.mark_completed()
+        assert task.attempt_count == 3
+        assert task.failure_count == 2
+        assert task.status == TaskStatus.COMPLETED
 
 
 class TestTaskList:
