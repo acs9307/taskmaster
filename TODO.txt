@@ -240,11 +240,11 @@ Goal: Runs should be safely resumable after rate limits, crashes, or user aborts
 	•	Rate limit usage.
 	•	Last-known error per task.
 	•	Use atomic writes (temp file + rename) to avoid corruption.
-	•	⬜ Task 7.2 — Resume logic for all stopping conditions
+	•	✅ Task 7.2 — Resume logic for all stopping conditions
 	•	Implement agent-runner resume that:
 	•	Resumes from last incomplete task.
 	•	Preserves failure counters.
-	•	Respects “task was skipped” flags.
+	•	Respects "task was skipped" flags.
 	•	Ensure behavior is consistent whether the run stopped:
 	•	Due to rate limit.
 	•	Due to fail-safe escalation.

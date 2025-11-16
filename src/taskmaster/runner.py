@@ -119,108 +119,121 @@ class TaskRunner:
         # Get max attempts from config
         max_attempts = self.config.max_attempts_per_task if self.config else 3
 
-        # Start from the current task index (for resume support)
-        start_index = self.state.current_task_index
-        for i in range(start_index, len(self.task_list.tasks)):
-            task = self.task_list.tasks[i]
-            task_num = i + 1
+        try:
+            # Start from the current task index (for resume support)
+            start_index = self.state.current_task_index
+            for i in range(start_index, len(self.task_list.tasks)):
+                task = self.task_list.tasks[i]
+                task_num = i + 1
 
-            # Skip if already completed
-            if self.state.is_task_completed(task.id):
-                click.echo("-" * 60)
-                click.secho(
-                    f"\n[SKIPPED] Task {task_num}/{total_tasks}: {task.title}",
-                    fg="yellow",
-                )
-                click.echo(f"ID: {task.id}")
-                click.echo("Task already completed in previous run")
-                continue
-
-            # Retry loop for failed tasks
-            while True:
-                # Increment attempt counter
-                task.increment_attempt()
-                self.state.increment_attempt_count(task.id)
-
-                attempt_num = task.attempt_count
-
-                click.echo("-" * 60)
-                if attempt_num > 1:
+                # Skip if already completed
+                if self.state.is_task_completed(task.id):
+                    click.echo("-" * 60)
                     click.secho(
-                        f"\n[RETRY {attempt_num}/{max_attempts}] Task {task_num}/{total_tasks}: {task.title}",
+                        f"\n[SKIPPED] Task {task_num}/{total_tasks}: {task.title}",
                         fg="yellow",
-                        bold=True,
                     )
+                    click.echo(f"ID: {task.id}")
+                    click.echo("Task already completed in previous run")
+                    continue
 
-                success = self._run_task(task, task_num, total_tasks)
+                # Retry loop for failed tasks
+                while True:
+                    # Increment attempt counter
+                    task.increment_attempt()
+                    self.state.increment_attempt_count(task.id)
 
-                if success:
-                    # Mark task as completed in state and save
-                    self.state.mark_task_completed(task.id)
-                    self.state.current_task_index = i + 1
-                    if not self.dry_run:
-                        save_state(self.state)
-                    break  # Exit retry loop on success
-                else:
-                    # Task failed
-                    self.state.increment_failure_count(task.id, "Task execution failed")
+                    attempt_num = task.attempt_count
 
-                    # Check if we should escalate to user intervention immediately
-                    should_prompt = (
-                        self.stop_on_first_failure and attempt_num == 1
-                    ) or attempt_num >= max_attempts
-
-                    if should_prompt:
-                        # Either stop-on-first-failure mode or max attempts reached
-                        # Escalate to user intervention
-                        if self.stop_on_first_failure and attempt_num == 1:
-                            click.secho(
-                                "\n⚠ Stop-on-first-failure mode: Task failed on first attempt",
-                                fg="yellow",
-                                bold=True,
-                            )
-                        user_choice = self._prompt_user_intervention(task, max_attempts)
-
-                        # Record user intervention
-                        self.state.record_user_intervention(task.id, user_choice)
-                        if not self.dry_run:
-                            save_state(self.state)
-
-                        if user_choice == "retry":
-                            click.secho("\n⚙  Retrying task once more...", fg="yellow")
-                            # Reset for one more attempt
-                            task.reset_for_retry()
-                            # Continue to next iteration of retry loop
-                        elif user_choice == "skip":
-                            click.secho(f"\n⊘ Skipping task: {task.title}", fg="yellow")
-                            task.mark_skipped()
-                            if not self.dry_run:
-                                save_state(self.state)
-                            break  # Exit retry loop, continue to next task
-                        elif user_choice == "abort":
-                            click.secho("\n✗ Aborting execution as requested", fg="red", bold=True)
-                            all_successful = False
-                            if not self.dry_run:
-                                save_state(self.state)
-                            # Set success to False to trigger outer loop exit
-                            success = False
-                            break  # Exit retry loop
-                    else:
-                        # Normal retry logic (attempt_num < max_attempts and not stop_on_first_failure)
+                    click.echo("-" * 60)
+                    if attempt_num > 1:
                         click.secho(
-                            f"\n⚠ Task failed (attempt {attempt_num}/{max_attempts}), retrying...",
+                            f"\n[RETRY {attempt_num}/{max_attempts}] Task {task_num}/{total_tasks}: {task.title}",
                             fg="yellow",
+                            bold=True,
                         )
-                        # Reset task for retry
-                        task.reset_for_retry()
+
+                    success = self._run_task(task, task_num, total_tasks)
+
+                    if success:
+                        # Mark task as completed in state and save
+                        self.state.mark_task_completed(task.id)
+                        self.state.current_task_index = i + 1
                         if not self.dry_run:
                             save_state(self.state)
-                        # Continue to next iteration of retry loop
+                        break  # Exit retry loop on success
+                    else:
+                        # Task failed
+                        self.state.increment_failure_count(task.id, "Task execution failed")
 
-            # If task ultimately failed or aborted, stop execution
-            # But allow continuing if task was skipped
-            if not success and task.status != TaskStatus.SKIPPED:
-                break
+                        # Check if we should escalate to user intervention immediately
+                        should_prompt = (
+                            self.stop_on_first_failure and attempt_num == 1
+                        ) or attempt_num >= max_attempts
+
+                        if should_prompt:
+                            # Either stop-on-first-failure mode or max attempts reached
+                            # Escalate to user intervention
+                            if self.stop_on_first_failure and attempt_num == 1:
+                                click.secho(
+                                    "\n⚠ Stop-on-first-failure mode: Task failed on first attempt",
+                                    fg="yellow",
+                                    bold=True,
+                                )
+                            user_choice = self._prompt_user_intervention(task, max_attempts)
+
+                            # Record user intervention
+                            self.state.record_user_intervention(task.id, user_choice)
+                            if not self.dry_run:
+                                save_state(self.state)
+
+                            if user_choice == "retry":
+                                click.secho("\n⚙  Retrying task once more...", fg="yellow")
+                                # Reset for one more attempt
+                                task.reset_for_retry()
+                                # Continue to next iteration of retry loop
+                            elif user_choice == "skip":
+                                click.secho(f"\n⊘ Skipping task: {task.title}", fg="yellow")
+                                task.mark_skipped()
+                                if not self.dry_run:
+                                    save_state(self.state)
+                                break  # Exit retry loop, continue to next task
+                            elif user_choice == "abort":
+                                click.secho(
+                                    "\n✗ Aborting execution as requested", fg="red", bold=True
+                                )
+                                all_successful = False
+                                if not self.dry_run:
+                                    save_state(self.state)
+                                # Set success to False to trigger outer loop exit
+                                success = False
+                                break  # Exit retry loop
+                        else:
+                            # Normal retry logic (attempt_num < max_attempts and not stop_on_first_failure)
+                            click.secho(
+                                f"\n⚠ Task failed (attempt {attempt_num}/{max_attempts}), retrying...",
+                                fg="yellow",
+                            )
+                            # Reset task for retry
+                            task.reset_for_retry()
+                            if not self.dry_run:
+                                save_state(self.state)
+                            # Continue to next iteration of retry loop
+
+                # If task ultimately failed or aborted, stop execution
+                # But allow continuing if task was skipped
+                if not success and task.status != TaskStatus.SKIPPED:
+                    break
+
+        except KeyboardInterrupt:
+            # User pressed Ctrl+C - save state before exiting
+            click.echo("\n")
+            click.secho("⚠ Interrupted by user (Ctrl+C)", fg="yellow", bold=True)
+            click.echo("Saving state...")
+            if not self.dry_run:
+                save_state(self.state)
+            click.secho("✓ State saved. You can resume by running with --resume", fg="green")
+            return False
 
         click.echo("\n" + "=" * 60)
         if all_successful:
