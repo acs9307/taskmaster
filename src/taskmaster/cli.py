@@ -25,6 +25,7 @@ def main(ctx):
       taskmaster run <task-file>     Run tasks from a task list file
       taskmaster status              Show current queue and progress
       taskmaster resume              Resume interrupted task execution
+      taskmaster debug               Show detailed debug state information
       taskmaster config validate     Validate configuration
 
     \b
@@ -33,6 +34,7 @@ def main(ctx):
       taskmaster run tasks.json      Execute tasks from tasks.json
       taskmaster status              Check current task progress
       taskmaster resume              Continue from where you left off
+      taskmaster debug               Diagnose issues with detailed state info
     """
     # Ensure context object exists for subcommands
     ctx.ensure_object(dict)
@@ -278,6 +280,181 @@ def resume(ctx, force: bool, provider: Optional[str]) -> None:
     # Exit with appropriate code
     if not success:
         raise click.exceptions.Exit(1)
+
+
+@main.command()
+@click.pass_context
+def debug(ctx) -> None:
+    """
+    Display detailed debugging information about the current run state.
+
+    Shows comprehensive state information including per-task status,
+    failure counts, attempt counts, non-progress counts, user interventions,
+    last errors, and rate limit usage statistics.
+
+    This command is helpful for diagnosing issues and understanding
+    the current state of task execution.
+
+    \b
+    Examples:
+      taskmaster debug        Show full state information
+    """
+    click.echo("TaskMaster Debug State")
+    click.echo("=" * 60)
+
+    # Load state
+    state = load_state()
+
+    if state is None:
+        click.echo("\nNo saved state found.")
+        click.secho("Run 'taskmaster run <task-file>' to start.", fg="cyan")
+        return
+
+    # Basic information
+    click.echo(f"\nTask File: {state.task_file}")
+    click.echo(f"Created: {state.created_at}")
+    click.echo(f"Updated: {state.updated_at}")
+    click.echo(f"Current Task Index: {state.current_task_index}")
+
+    # Load task list for detailed information
+    try:
+        from taskmaster.task_parser import load_task_list
+
+        task_list = load_task_list(Path(state.task_file))
+        total_tasks = len(task_list.tasks)
+
+        click.echo("\n" + "=" * 60)
+        click.echo("PER-TASK STATUS")
+        click.echo("=" * 60)
+
+        for i, task in enumerate(task_list.tasks):
+            task_num = i + 1
+
+            # Determine status
+            if state.is_task_completed(task.id):
+                status_icon = "✓"
+                status_text = "COMPLETED"
+                status_color = "green"
+            elif i < state.current_task_index:
+                # Task before current index but not completed = failed/skipped
+                if state.get_user_intervention(task.id) == "skip":
+                    status_icon = "⊘"
+                    status_text = "SKIPPED"
+                    status_color = "yellow"
+                else:
+                    status_icon = "✗"
+                    status_text = "FAILED"
+                    status_color = "red"
+            elif i == state.current_task_index:
+                status_icon = "→"
+                status_text = "CURRENT/NEXT"
+                status_color = "cyan"
+            else:
+                status_icon = "○"
+                status_text = "PENDING"
+                status_color = "white"
+
+            # Task header
+            click.echo(f"\nTask {task_num}/{total_tasks}: {task.title}")
+            click.echo(f"  ID: {task.id}")
+            click.secho(f"  Status: {status_icon} {status_text}", fg=status_color)
+
+            # Failure count
+            failure_count = state.get_failure_count(task.id)
+            if failure_count > 0:
+                click.secho(f"  Failures: {failure_count}", fg="red")
+
+            # Attempt count
+            attempt_count = state.get_attempt_count(task.id)
+            if attempt_count > 0:
+                click.echo(f"  Attempts: {attempt_count}")
+
+            # Non-progress count
+            non_progress_count = state.get_non_progress_count(task.id)
+            if non_progress_count > 0:
+                click.secho(f"  Non-progress attempts: {non_progress_count}", fg="yellow")
+
+            # User intervention
+            intervention = state.get_user_intervention(task.id)
+            if intervention:
+                click.secho(f"  User intervention: {intervention}", fg="magenta")
+
+            # Last error
+            last_error = state.get_last_error(task.id)
+            if last_error:
+                click.secho(f"  Last error: {last_error[:100]}...", fg="red")
+
+    except Exception as e:
+        click.secho(f"\n⚠ Warning: Could not load task list: {e}", fg="yellow")
+        click.echo("\nShowing raw state data instead:")
+
+        # Raw completed tasks
+        click.echo("\nCompleted Task IDs:")
+        if state.completed_task_ids:
+            for task_id in state.completed_task_ids:
+                click.secho(f"  ✓ {task_id}", fg="green")
+        else:
+            click.echo("  (none)")
+
+        # Raw failure counts
+        if state.failure_counts:
+            click.echo("\nFailure Counts:")
+            for task_id, count in state.failure_counts.items():
+                click.secho(f"  {task_id}: {count}", fg="red")
+
+        # Raw attempt counts
+        if state.attempt_counts:
+            click.echo("\nAttempt Counts:")
+            for task_id, count in state.attempt_counts.items():
+                click.echo(f"  {task_id}: {count}")
+
+        # Raw non-progress counts
+        if state.non_progress_counts:
+            click.echo("\nNon-Progress Counts:")
+            for task_id, count in state.non_progress_counts.items():
+                click.secho(f"  {task_id}: {count}", fg="yellow")
+
+        # Raw user interventions
+        if state.user_interventions:
+            click.echo("\nUser Interventions:")
+            for task_id, action in state.user_interventions.items():
+                click.secho(f"  {task_id}: {action}", fg="magenta")
+
+        # Raw last errors
+        if state.last_errors:
+            click.echo("\nLast Errors:")
+            for task_id, error in state.last_errors.items():
+                click.echo(f"  {task_id}:")
+                click.secho(f"    {error[:100]}...", fg="red")
+
+    # Usage records summary
+    if state.usage_records:
+        click.echo("\n" + "=" * 60)
+        click.echo("RATE LIMIT USAGE")
+        click.echo("=" * 60)
+
+        # Group by provider
+        providers = {record.get("provider") for record in state.usage_records}
+
+        for provider in sorted(providers):
+            click.echo(f"\nProvider: {provider}")
+
+            # Get usage for different windows
+            hourly_tokens, hourly_requests = state.get_hourly_usage(provider)
+            daily_tokens, daily_requests = state.get_daily_usage(provider)
+            weekly_tokens, weekly_requests = state.get_weekly_usage(provider)
+
+            click.echo(f"  Last hour:  {hourly_tokens:,} tokens, {hourly_requests} requests")
+            click.echo(f"  Last day:   {daily_tokens:,} tokens, {daily_requests} requests")
+            click.echo(f"  Last week:  {weekly_tokens:,} tokens, {weekly_requests} requests")
+
+        # Total records
+        click.echo(f"\nTotal usage records: {len(state.usage_records)}")
+    else:
+        click.echo("\n" + "=" * 60)
+        click.echo("No rate limit usage recorded yet.")
+
+    click.echo("\n" + "=" * 60)
 
 
 @main.group()

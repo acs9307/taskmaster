@@ -24,6 +24,7 @@ class TestCLI:
         assert "run" in result.output
         assert "status" in result.output
         assert "resume" in result.output
+        assert "debug" in result.output
         assert "config" in result.output
 
     def test_version(self):
@@ -239,6 +240,135 @@ class TestResumeCommand:
             # Should fail with no saved state
             assert result.exit_code == 1
             assert "No saved state found" in result.output
+
+
+class TestDebugCommand:
+    """Tests for 'debug' command."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+
+    def test_debug_help(self):
+        """Test debug --help command."""
+        result = self.runner.invoke(main, ["debug", "--help"])
+        assert result.exit_code == 0
+        assert "Display detailed debugging information" in result.output
+        assert "per-task status" in result.output
+        # "failure counts" may be wrapped across lines
+        assert "counts" in result.output
+
+    def test_debug_no_state(self):
+        """Test debug command when no state exists."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(main, ["debug"])
+            assert result.exit_code == 0
+            assert "TaskMaster Debug State" in result.output
+            assert "No saved state found" in result.output
+
+    def test_debug_with_state(self):
+        """Test debug command with saved state."""
+        import json
+        from pathlib import Path
+
+        with self.runner.isolated_filesystem():
+            # Create a fake state file
+            state_dir = Path(".taskmaster")
+            state_dir.mkdir()
+            state_file = state_dir / "state.json"
+
+            # Create task file
+            task_file = Path("tasks.yml")
+            task_file.write_text(
+                """
+tasks:
+  - id: T1
+    title: First task
+    description: Test task 1
+  - id: T2
+    title: Second task
+    description: Test task 2
+"""
+            )
+
+            # Create state with some data
+            state_data = {
+                "task_file": str(task_file),
+                "completed_task_ids": ["T1"],
+                "current_task_index": 1,
+                "failure_counts": {"T1": 2},
+                "attempt_counts": {"T1": 3},
+                "non_progress_counts": {"T1": 1},
+                "user_interventions": {},
+                "last_errors": {"T1": "Some error occurred"},
+                "usage_records": [
+                    {
+                        "timestamp": "2025-01-01T12:00:00",
+                        "provider": "claude",
+                        "tokens": 1000,
+                        "requests": 1,
+                    }
+                ],
+                "created_at": "2025-01-01T10:00:00",
+                "updated_at": "2025-01-01T12:00:00",
+            }
+
+            with open(state_file, "w") as f:
+                json.dump(state_data, f)
+
+            # Run debug command
+            result = self.runner.invoke(main, ["debug"])
+            assert result.exit_code == 0
+            assert "TaskMaster Debug State" in result.output
+            assert "tasks.yml" in result.output
+            assert "PER-TASK STATUS" in result.output
+            assert "First task" in result.output
+            assert "Second task" in result.output
+            assert "COMPLETED" in result.output
+            assert "CURRENT/NEXT" in result.output
+            assert "Failures: 2" in result.output
+            assert "Attempts: 3" in result.output
+            assert "RATE LIMIT USAGE" in result.output
+            assert "claude" in result.output
+
+    def test_debug_with_state_no_task_file(self):
+        """Test debug command when task file doesn't exist."""
+        import json
+        from pathlib import Path
+
+        with self.runner.isolated_filesystem():
+            # Create a fake state file
+            state_dir = Path(".taskmaster")
+            state_dir.mkdir()
+            state_file = state_dir / "state.json"
+
+            # Create state pointing to non-existent task file
+            state_data = {
+                "task_file": "nonexistent.yml",
+                "completed_task_ids": ["T1"],
+                "current_task_index": 1,
+                "failure_counts": {"T1": 2},
+                "attempt_counts": {"T1": 3},
+                "non_progress_counts": {},
+                "user_interventions": {},
+                "last_errors": {"T1": "Some error"},
+                "usage_records": [],
+                "created_at": "2025-01-01T10:00:00",
+                "updated_at": "2025-01-01T12:00:00",
+            }
+
+            with open(state_file, "w") as f:
+                json.dump(state_data, f)
+
+            # Run debug command - should fall back to raw state data
+            result = self.runner.invoke(main, ["debug"])
+            assert result.exit_code == 0
+            assert "TaskMaster Debug State" in result.output
+            assert "Warning: Could not load task list" in result.output
+            assert "Showing raw state data" in result.output
+            assert "Completed Task IDs" in result.output
+            assert "T1" in result.output
+            assert "Failure Counts" in result.output
 
 
 class TestConfigCommand:

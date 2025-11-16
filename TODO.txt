@@ -249,7 +249,7 @@ Goal: Runs should be safely resumable after rate limits, crashes, or user aborts
 	•	Due to rate limit.
 	•	Due to fail-safe escalation.
 	•	Due to user abort (Ctrl+C).
-	•	⬜ Task 7.3 — Manual state inspection/debug command
+	•	✅ Task 7.3 — Manual state inspection/debug command
 	•	Add agent-runner debug state to:
 	•	Print current run state.
 	•	Show per-task status and failure counts.
