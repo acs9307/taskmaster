@@ -50,6 +50,7 @@ class TestRunCommand:
         assert "--stop-on-first-failure" in result.output
         assert "--provider" in result.output
         assert "--ignore-config-limits" in result.output
+        assert "--quiet" in result.output
 
     def test_run_with_valid_file(self):
         """Test run command with valid file."""
@@ -165,6 +166,53 @@ tasks:
             assert result.exit_code == 0
             # Provider override is accepted and used
             assert "completed successfully" in result.output
+        finally:
+            task_file.unlink()
+
+    def test_run_quiet_flag(self):
+        """Test run command with --quiet flag."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
+            f.write(
+                """
+tasks:
+  - id: T1
+    title: Test task
+    description: A test task
+"""
+            )
+            f.flush()
+            task_file = Path(f.name)
+
+        try:
+            result = self.runner.invoke(main, ["run", str(task_file), "--quiet", "--dry-run"])
+            assert result.exit_code == 0
+            # Quiet mode should have minimal output
+            assert "Test task" in result.output
+            assert "All tasks completed" in result.output
+            # Should NOT have verbose output like "Starting TaskMaster Execution"
+            assert "Starting TaskMaster Execution" not in result.output
+        finally:
+            task_file.unlink()
+
+    def test_run_timing_output(self):
+        """Test that timing information is displayed for tasks."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
+            f.write(
+                """
+tasks:
+  - id: T1
+    title: Test task
+    description: A test task
+"""
+            )
+            f.flush()
+            task_file = Path(f.name)
+
+        try:
+            result = self.runner.invoke(main, ["run", str(task_file), "--dry-run"])
+            assert result.exit_code == 0
+            # Should display timing in format like "0.0s" or "1.5s"
+            assert "s)" in result.output  # Timing suffix
         finally:
             task_file.unlink()
 

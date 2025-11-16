@@ -74,6 +74,12 @@ def main(ctx):
     is_flag=True,
     help="Ignore configured rate limits (not recommended)",
 )
+@click.option(
+    "--quiet",
+    "-q",
+    is_flag=True,
+    help="Quiet mode - minimal output (useful for CI environments)",
+)
 @click.pass_context
 def run(
     ctx,
@@ -84,6 +90,7 @@ def run(
     resume: bool,
     auto_apply: bool,
     ignore_config_limits: bool,
+    quiet: bool,
 ) -> None:
     """
     Run tasks from a task list file.
@@ -111,6 +118,7 @@ def run(
         resume=resume,
         auto_apply=auto_apply,
         ignore_config_limits=ignore_config_limits,
+        quiet=quiet,
     )
 
     # Exit with appropriate code

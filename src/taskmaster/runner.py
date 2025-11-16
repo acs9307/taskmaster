@@ -39,6 +39,7 @@ class TaskRunner:
         stop_on_first_failure: bool = False,
         ignore_config_limits: bool = False,
         config: Optional[Config] = None,
+        quiet: bool = False,
     ):
         """
         Initialize task runner.
@@ -55,6 +56,7 @@ class TaskRunner:
             stop_on_first_failure: If True, prompt user immediately on first post-hook failure
             ignore_config_limits: If True, ignore configured rate limits (not recommended)
             config: Optional TaskMaster configuration (for hooks)
+            quiet: If True, minimal output (useful for CI environments)
         """
         self.task_list = task_list
         self.task_file = task_file
@@ -66,7 +68,12 @@ class TaskRunner:
         self.stop_on_first_failure = stop_on_first_failure
         self.ignore_config_limits = ignore_config_limits
         self.config = config
+        self.quiet = quiet
         self.prompt_builder = PromptBuilder()
+
+        # Track task timings
+        self.task_start_times = {}
+        self.task_durations = {}
 
         # Initialize hook runner if config is available
         if config:
@@ -87,32 +94,40 @@ class TaskRunner:
         Returns:
             True if all tasks completed successfully, False otherwise
         """
-        click.echo("\n" + "=" * 60)
-        click.secho("Starting TaskMaster Execution", fg="cyan", bold=True)
-        click.echo("=" * 60)
-
         total_tasks = len(self.task_list.tasks)
-        click.echo(f"\nTotal tasks: {total_tasks}")
 
-        # Show provider information if available
-        if self.provider_name:
-            click.echo(f"Provider: {self.provider_name}")
-            if self.agent_client:
-                model = self.agent_client.get_model_name()
-                click.echo(f"Model: {model}")
+        if self.quiet:
+            # Quiet mode: minimal header
+            click.echo(f"TaskMaster: Running {total_tasks} tasks")
+            if self.dry_run:
+                click.echo("[DRY RUN]")
+        else:
+            # Normal mode: rich header
+            click.echo("\n" + "=" * 60)
+            click.secho("Starting TaskMaster Execution", fg="cyan", bold=True)
+            click.echo("=" * 60)
 
-        # Check if we're resuming
-        if self.state.current_task_index > 0:
-            completed = len(self.state.completed_task_ids)
-            click.secho(
-                f"\n[RESUMING] Completed {completed}/{total_tasks} tasks",
-                fg="yellow",
-            )
+            click.echo(f"\nTotal tasks: {total_tasks}")
 
-        if self.dry_run:
-            click.secho("\n[DRY RUN MODE - No actual execution]", fg="yellow")
+            # Show provider information if available
+            if self.provider_name:
+                click.echo(f"Provider: {self.provider_name}")
+                if self.agent_client:
+                    model = self.agent_client.get_model_name()
+                    click.echo(f"Model: {model}")
 
-        click.echo()
+            # Check if we're resuming
+            if self.state.current_task_index > 0:
+                completed = len(self.state.completed_task_ids)
+                click.secho(
+                    f"\n[RESUMING] Completed {completed}/{total_tasks} tasks",
+                    fg="yellow",
+                )
+
+            if self.dry_run:
+                click.secho("\n[DRY RUN MODE - No actual execution]", fg="yellow")
+
+            click.echo()
 
         all_successful = True
 
@@ -128,13 +143,18 @@ class TaskRunner:
 
                 # Skip if already completed
                 if self.state.is_task_completed(task.id):
-                    click.echo("-" * 60)
-                    click.secho(
-                        f"\n[SKIPPED] Task {task_num}/{total_tasks}: {task.title}",
-                        fg="yellow",
-                    )
-                    click.echo(f"ID: {task.id}")
-                    click.echo("Task already completed in previous run")
+                    if self.quiet:
+                        click.secho(
+                            f"[{task_num}/{total_tasks}] {task.title} - Skipped", fg="yellow"
+                        )
+                    else:
+                        click.echo("-" * 60)
+                        click.secho(
+                            f"\n[SKIPPED] Task {task_num}/{total_tasks}: {task.title}",
+                            fg="yellow",
+                        )
+                        click.echo(f"ID: {task.id}")
+                        click.echo("Task already completed in previous run")
                     continue
 
                 # Retry loop for failed tasks
@@ -145,13 +165,20 @@ class TaskRunner:
 
                     attempt_num = task.attempt_count
 
-                    click.echo("-" * 60)
+                    if not self.quiet:
+                        click.echo("-" * 60)
                     if attempt_num > 1:
-                        click.secho(
-                            f"\n[RETRY {attempt_num}/{max_attempts}] Task {task_num}/{total_tasks}: {task.title}",
-                            fg="yellow",
-                            bold=True,
-                        )
+                        if self.quiet:
+                            click.secho(
+                                f"[{task_num}/{total_tasks}] {task.title} - Retry {attempt_num}/{max_attempts}",
+                                fg="yellow",
+                            )
+                        else:
+                            click.secho(
+                                f"\n[RETRY {attempt_num}/{max_attempts}] Task {task_num}/{total_tasks}: {task.title}",
+                                fg="yellow",
+                                bold=True,
+                            )
 
                     success = self._run_task(task, task_num, total_tasks)
 
@@ -235,12 +262,21 @@ class TaskRunner:
             click.secho("✓ State saved. You can resume by running with --resume", fg="green")
             return False
 
-        click.echo("\n" + "=" * 60)
-        if all_successful:
-            click.secho("✓ All tasks completed successfully!", fg="green", bold=True)
+        # Display summary
+        if self.quiet:
+            # Quiet mode: minimal summary
+            if all_successful:
+                click.secho("✓ All tasks completed", fg="green")
+            else:
+                click.secho("✗ Execution failed", fg="red")
         else:
-            click.secho("✗ Task execution stopped due to failure", fg="red", bold=True)
-        click.echo("=" * 60 + "\n")
+            # Normal mode: rich summary
+            click.echo("\n" + "=" * 60)
+            if all_successful:
+                click.secho("✓ All tasks completed successfully!", fg="green", bold=True)
+            else:
+                click.secho("✗ Task execution stopped due to failure", fg="red", bold=True)
+            click.echo("=" * 60 + "\n")
 
         return all_successful
 
@@ -256,42 +292,74 @@ class TaskRunner:
         Returns:
             True if task completed successfully, False otherwise
         """
+        # Start timing
+        start_time = time.time()
+        self.task_start_times[task.id] = start_time
+
         # Display task header
-        click.secho(f"\nTask {task_num}/{total_tasks}: {task.title}", fg="cyan", bold=True)
-        click.echo(f"ID: {task.id}")
-        click.echo(f"Description: {task.description}")
-        click.echo(f"Path: {task.path}")
+        if self.quiet:
+            # Quiet mode: minimal output
+            click.echo(f"[{task_num}/{total_tasks}] {task.title}")
+        else:
+            # Normal mode: rich output
+            click.echo("\n" + "━" * 60)
+            click.secho(f"Task {task_num}/{total_tasks}: {task.title}", fg="cyan", bold=True)
+            click.echo(f"ID: {task.id}")
+            click.echo(f"Description: {task.description}")
+            if task.path:
+                click.echo(f"Path: {task.path}")
 
-        if task.metadata:
-            click.echo(f"Metadata: {task.metadata}")
+            if task.metadata:
+                click.echo(f"Metadata: {task.metadata}")
 
-        if task.pre_hooks:
-            click.echo(f"Pre-hooks: {', '.join(task.pre_hooks)}")
+            if task.pre_hooks:
+                click.echo(f"Pre-hooks: {', '.join(task.pre_hooks)}")
 
-        if task.post_hooks:
-            click.echo(f"Post-hooks: {', '.join(task.post_hooks)}")
+            if task.post_hooks:
+                click.echo(f"Post-hooks: {', '.join(task.post_hooks)}")
 
         # Mark task as running
         task.mark_running()
-        click.echo(f"\nStatus: {task.status.value}")
+        if not self.quiet:
+            click.secho(f"\nStatus: ▶ {task.status.value}", fg="yellow")
+            click.echo()
 
         # Execute task
-        click.echo()
+        success = False
         if self.dry_run:
-            click.secho("[DRY RUN] Would execute task", fg="yellow")
+            if not self.quiet:
+                click.secho("[DRY RUN] Would execute task", fg="yellow")
             task.mark_completed()
-            click.secho(f"\n✓ Task completed: {task.title}", fg="green")
-            return True
-
-        # Execute with agent if available
-        if self.agent_client:
-            return self._execute_with_agent(task)
+            success = True
+        elif self.agent_client:
+            success = self._execute_with_agent(task)
         else:
             # No agent available - just mark as completed
-            click.secho("⚙  No agent configured - marking as completed", fg="yellow")
+            if not self.quiet:
+                click.secho("⚙  No agent configured - marking as completed", fg="yellow")
             task.mark_completed()
-            click.secho(f"\n✓ Task completed: {task.title}", fg="green")
-            return True
+            success = True
+
+        # Record timing
+        end_time = time.time()
+        duration = end_time - start_time
+        self.task_durations[task.id] = duration
+
+        # Display completion status with timing
+        if success:
+            if self.quiet:
+                click.secho(f"  ✓ Completed ({duration:.1f}s)", fg="green")
+            else:
+                click.secho(
+                    f"\n✓ Task completed: {task.title} ({duration:.1f}s)", fg="green", bold=True
+                )
+        else:
+            if self.quiet:
+                click.secho(f"  ✗ Failed ({duration:.1f}s)", fg="red")
+            else:
+                click.secho(f"\n✗ Task failed: {task.title} ({duration:.1f}s)", fg="red", bold=True)
+
+        return success
 
     def _execute_with_agent(self, task: Task) -> bool:
         """
@@ -310,22 +378,24 @@ class TaskRunner:
             )
 
             if pre_hooks and self.hook_runner:
-                click.secho(f"\n⚙  Running {len(pre_hooks)} pre-task hook(s)...", fg="yellow")
+                if not self.quiet:
+                    click.secho(f"\n⚙  Running {len(pre_hooks)} pre-task hook(s)...", fg="yellow")
 
                 try:
                     results = self.hook_runner.run_pre_hooks(pre_hooks)
 
                     # Display hook results
-                    for result in results:
-                        if result.success:
-                            click.secho(
-                                f"  ✓ {result.hook_id} ({result.duration:.1f}s)",
-                                fg="green",
-                            )
-                        else:
-                            click.secho(f"  ✗ {result.hook_id} failed", fg="red")
-                            if result.stderr:
-                                click.echo(f"    {result.stderr[:200]}")
+                    if not self.quiet:
+                        for result in results:
+                            if result.success:
+                                click.secho(
+                                    f"  ✓ {result.hook_id} ({result.duration:.1f}s)",
+                                    fg="green",
+                                )
+                            else:
+                                click.secho(f"  ✗ {result.hook_id} failed", fg="red")
+                                if result.stderr:
+                                    click.echo(f"    {result.stderr[:200]}")
 
                     # Save pre-hook results
                     self.hook_runner.save_hook_results(task.id, results, "pre")
@@ -348,7 +418,8 @@ class TaskRunner:
             diff_before = get_git_diff(Path.cwd())
 
             # Build prompt for the task
-            click.secho("\n⚙  Building prompt...", fg="yellow")
+            if not self.quiet:
+                click.secho("\n⚙  Building prompt...", fg="yellow")
             context = PromptContext(
                 task=task,
                 repo_path=Path.cwd(),
@@ -398,7 +469,8 @@ class TaskRunner:
                         return False
 
             # Call agent with retry logic for rate limit errors
-            click.secho(f"⚙  Calling agent ({self.provider_name})...", fg="yellow")
+            if not self.quiet:
+                click.secho(f"⚙  Calling agent ({self.provider_name})...", fg="yellow")
 
             max_retries = self.config.max_rate_limit_retries if self.config else 5
             max_backoff = self.config.max_backoff_seconds if self.config else 300
@@ -467,9 +539,10 @@ class TaskRunner:
             self._save_response_log(task, prompt_components, response)
 
             # Display response summary
-            click.echo(f"\n✓ Agent response received ({len(response.content)} chars)")
-            click.echo(f"  Model: {response.model}")
-            if response.usage:
+            if not self.quiet:
+                click.echo(f"\n✓ Agent response received ({len(response.content)} chars)")
+                click.echo(f"  Model: {response.model}")
+            if not self.quiet and response.usage:
                 click.echo(f"  Tokens: {response.usage.get('total_tokens', 'N/A')}")
 
             # Apply changes if auto-apply is enabled
@@ -492,22 +565,24 @@ class TaskRunner:
             )
 
             if post_hooks and self.hook_runner:
-                click.secho(f"\n⚙  Running {len(post_hooks)} post-task hook(s)...", fg="yellow")
+                if not self.quiet:
+                    click.secho(f"\n⚙  Running {len(post_hooks)} post-task hook(s)...", fg="yellow")
 
                 try:
                     results = self.hook_runner.run_post_hooks(post_hooks)
 
                     # Display hook results
-                    for result in results:
-                        if result.success:
-                            click.secho(
-                                f"  ✓ {result.hook_id} ({result.duration:.1f}s)",
-                                fg="green",
-                            )
-                        else:
-                            click.secho(f"  ✗ {result.hook_id} failed", fg="red")
-                            if result.stderr:
-                                click.echo(f"    {result.stderr[:200]}")
+                    if not self.quiet:
+                        for result in results:
+                            if result.success:
+                                click.secho(
+                                    f"  ✓ {result.hook_id} ({result.duration:.1f}s)",
+                                    fg="green",
+                                )
+                            else:
+                                click.secho(f"  ✗ {result.hook_id} failed", fg="red")
+                                if result.stderr:
+                                    click.echo(f"    {result.stderr[:200]}")
 
                     # Save post-hook results
                     self.hook_runner.save_hook_results(task.id, results, "post")
@@ -698,6 +773,7 @@ def run_tasks(
     resume: bool = False,
     auto_apply: bool = False,
     ignore_config_limits: bool = False,
+    quiet: bool = False,
 ) -> bool:
     """
     Run tasks from a task list file.
@@ -710,15 +786,18 @@ def run_tasks(
         resume: If True, resume from saved state
         auto_apply: If True, automatically apply code changes from agent responses
         ignore_config_limits: If True, ignore configured rate limits (not recommended)
+        quiet: If True, minimal output (useful for CI environments)
 
     Returns:
         True if execution completed successfully, False otherwise
     """
     # Load task list
-    click.echo(f"Loading task list from: {task_file}")
+    if not quiet:
+        click.echo(f"Loading task list from: {task_file}")
     try:
         task_list = load_task_list(task_file)
-        click.secho(f"✓ Loaded {len(task_list.tasks)} tasks", fg="green")
+        if not quiet:
+            click.secho(f"✓ Loaded {len(task_list.tasks)} tasks", fg="green")
     except Exception as e:
         click.secho(f"✗ Failed to load task list: {e}", fg="red")
         return False
@@ -747,7 +826,8 @@ def run_tasks(
             # Get agent client for the specified provider
             try:
                 provider_name, agent_client = get_agent_client(config, provider)
-                click.secho(f"✓ Initialized provider: {provider_name}", fg="green")
+                if not quiet:
+                    click.secho(f"✓ Initialized provider: {provider_name}", fg="green")
             except ProviderError as e:
                 click.secho(f"✗ Provider configuration error: {e}", fg="red")
                 return False
@@ -776,7 +856,8 @@ def run_tasks(
                         # Start fresh if not explicitly resuming
                         state = None
                 else:
-                    click.secho("✓ Loaded existing state", fg="green")
+                    if not quiet:
+                        click.secho("✓ Loaded existing state", fg="green")
         except Exception as e:
             click.secho(f"⚠ Warning: Failed to load state: {e}", fg="yellow")
 
@@ -792,6 +873,7 @@ def run_tasks(
         stop_on_first_failure=stop_on_first_failure,
         ignore_config_limits=ignore_config_limits,
         config=config,
+        quiet=quiet,
     )
     success = runner.run()
 

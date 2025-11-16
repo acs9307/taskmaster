@@ -260,12 +260,12 @@ Goal: Runs should be safely resumable after rate limits, crashes, or user aborts
 Epic 8 — UX & Developer Ergonomics
 
 Goal: Make the tool nice to use from a terminal and easy to integrate into dev workflows.
-	•	⬜ Task 8.1 — Rich CLI output
+	•	✅ Task 8.1 — Rich CLI output
 	•	Add:
 	•	Colorized task status (pending/running/passed/failed/skipped).
 	•	Per-task timing info.
 	•	Clear separation between tasks.
-	•	Consider a “quiet” mode for CI.
+	•	Consider a "quiet" mode for CI.
 	•	⬜ Task 8.2 — Interactive controls during run
 	•	While tasks are running, allow keyboard shortcuts:
 	•	p to pause after current task.
