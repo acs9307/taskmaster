@@ -9,6 +9,8 @@ import click
 
 from taskmaster.agent_client import AgentClient, AgentError, CompletionRequest
 from taskmaster.change_applier import ChangeApplier
+from taskmaster.config import Config
+from taskmaster.hook_runner import HookExecutionError, HookRunner
 from taskmaster.models import Task, TaskList
 from taskmaster.prompt_builder import PromptBuilder, PromptContext
 from taskmaster.state import RunState, load_state, save_state
@@ -32,6 +34,7 @@ class TaskRunner:
         provider_name: Optional[str] = None,
         log_dir: Optional[Path] = None,
         auto_apply_changes: bool = False,
+        config: Optional[Config] = None,
     ):
         """
         Initialize task runner.
@@ -45,6 +48,7 @@ class TaskRunner:
             provider_name: Name of the provider being used
             log_dir: Directory to store agent response logs (defaults to .taskmaster/logs)
             auto_apply_changes: If True, automatically apply code changes from agent responses
+            config: Optional TaskMaster configuration (for hooks)
         """
         self.task_list = task_list
         self.task_file = task_file
@@ -53,7 +57,14 @@ class TaskRunner:
         self.provider_name = provider_name
         self.log_dir = log_dir or Path(".taskmaster") / "logs"
         self.auto_apply_changes = auto_apply_changes
+        self.config = config
         self.prompt_builder = PromptBuilder()
+
+        # Initialize hook runner if config is available
+        if config:
+            self.hook_runner = HookRunner(config, log_dir=self.log_dir)
+        else:
+            self.hook_runner = None
 
         # Initialize or use provided state
         if state is None:
@@ -199,8 +210,48 @@ class TaskRunner:
             True if task completed successfully, False otherwise
         """
         try:
+            # Run pre-hooks if configured
+            pre_hooks = task.pre_hooks or (
+                self.config.hook_defaults.pre_hooks if self.config else []
+            )
+
+            if pre_hooks and self.hook_runner:
+                click.secho(f"\n⚙  Running {len(pre_hooks)} pre-task hook(s)...", fg="yellow")
+
+                try:
+                    results = self.hook_runner.run_pre_hooks(pre_hooks)
+
+                    # Display hook results
+                    for result in results:
+                        if result.success:
+                            click.secho(
+                                f"  ✓ {result.hook_id} ({result.duration:.1f}s)",
+                                fg="green",
+                            )
+                        else:
+                            click.secho(f"  ✗ {result.hook_id} failed", fg="red")
+                            if result.stderr:
+                                click.echo(f"    {result.stderr[:200]}")
+
+                    # Save pre-hook results
+                    self.hook_runner.save_hook_results(task.id, results, "pre")
+
+                except HookExecutionError as e:
+                    click.secho(f"\n✗ Pre-hook failed: {e}", fg="red")
+                    click.echo(f"  Hook: {e.hook_result.hook_id}")
+                    click.echo(f"  Exit code: {e.hook_result.exit_code}")
+
+                    if e.hook_result.stderr:
+                        click.echo(f"  Error: {e.hook_result.stderr[:500]}")
+
+                    # Save failed hook results
+                    self.hook_runner.save_hook_results(task.id, [e.hook_result], "pre")
+
+                    task.mark_failed()
+                    return False
+
             # Build prompt for the task
-            click.secho("⚙  Building prompt...", fg="yellow")
+            click.secho("\n⚙  Building prompt...", fg="yellow")
             context = PromptContext(
                 task=task,
                 repo_path=Path.cwd(),
@@ -368,6 +419,7 @@ def run_tasks(
     # Load configuration and create agent client (unless dry run)
     agent_client = None
     provider_name = None
+    config = None
 
     if not dry_run:
         try:
@@ -430,6 +482,7 @@ def run_tasks(
         agent_client=agent_client,
         provider_name=provider_name,
         auto_apply_changes=auto_apply,
+        config=config,
     )
     success = runner.run()
 

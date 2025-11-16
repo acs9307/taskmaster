@@ -139,7 +139,7 @@ hooks:
 
 	•	Reference hook IDs from tasks.
 
-	•	⬜ Task 4.2 — Pre-task hook runner
+	•	✅ Task 4.2 — Pre-task hook runner
 	•	Before calling the agent for a task:
 	•	Run all configured pre_hooks in order.
 	•	Capture stdout/stderr and exit codes.
