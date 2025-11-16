@@ -35,6 +35,7 @@ class TaskRunner:
         provider_name: Optional[str] = None,
         log_dir: Optional[Path] = None,
         auto_apply_changes: bool = False,
+        stop_on_first_failure: bool = False,
         config: Optional[Config] = None,
     ):
         """
@@ -49,6 +50,7 @@ class TaskRunner:
             provider_name: Name of the provider being used
             log_dir: Directory to store agent response logs (defaults to .taskmaster/logs)
             auto_apply_changes: If True, automatically apply code changes from agent responses
+            stop_on_first_failure: If True, prompt user immediately on first post-hook failure
             config: Optional TaskMaster configuration (for hooks)
         """
         self.task_list = task_list
@@ -58,6 +60,7 @@ class TaskRunner:
         self.provider_name = provider_name
         self.log_dir = log_dir or Path(".taskmaster") / "logs"
         self.auto_apply_changes = auto_apply_changes
+        self.stop_on_first_failure = stop_on_first_failure
         self.config = config
         self.prompt_builder = PromptBuilder()
 
@@ -158,19 +161,20 @@ class TaskRunner:
                     # Task failed
                     self.state.increment_failure_count(task.id, "Task execution failed")
 
-                    # Check if we should retry
-                    if attempt_num < max_attempts:
-                        click.secho(
-                            f"\n⚠ Task failed (attempt {attempt_num}/{max_attempts}), retrying...",
-                            fg="yellow",
-                        )
-                        # Reset task for retry
-                        task.reset_for_retry()
-                        if not self.dry_run:
-                            save_state(self.state)
-                        # Continue to next iteration of retry loop
-                    else:
-                        # Max attempts reached - escalate to user intervention
+                    # Check if we should escalate to user intervention immediately
+                    should_prompt = (
+                        self.stop_on_first_failure and attempt_num == 1
+                    ) or attempt_num >= max_attempts
+
+                    if should_prompt:
+                        # Either stop-on-first-failure mode or max attempts reached
+                        # Escalate to user intervention
+                        if self.stop_on_first_failure and attempt_num == 1:
+                            click.secho(
+                                "\n⚠ Stop-on-first-failure mode: Task failed on first attempt",
+                                fg="yellow",
+                                bold=True,
+                            )
                         user_choice = self._prompt_user_intervention(task, max_attempts)
 
                         # Record user intervention
@@ -197,6 +201,17 @@ class TaskRunner:
                             # Set success to False to trigger outer loop exit
                             success = False
                             break  # Exit retry loop
+                    else:
+                        # Normal retry logic (attempt_num < max_attempts and not stop_on_first_failure)
+                        click.secho(
+                            f"\n⚠ Task failed (attempt {attempt_num}/{max_attempts}), retrying...",
+                            fg="yellow",
+                        )
+                        # Reset task for retry
+                        task.reset_for_retry()
+                        if not self.dry_run:
+                            save_state(self.state)
+                        # Continue to next iteration of retry loop
 
             # If task ultimately failed or aborted, stop execution
             # But allow continuing if task was skipped
@@ -565,7 +580,7 @@ class TaskRunner:
 def run_tasks(
     task_file: Path,
     dry_run: bool = False,
-    stop_on_failure: bool = False,
+    stop_on_first_failure: bool = False,
     provider: Optional[str] = None,
     resume: bool = False,
     auto_apply: bool = False,
@@ -576,7 +591,7 @@ def run_tasks(
     Args:
         task_file: Path to task list file (YAML or JSON)
         dry_run: If True, preview execution without running
-        stop_on_failure: If True, stop on first failure (currently unused)
+        stop_on_first_failure: If True, prompt user immediately on first post-hook failure (no retries)
         provider: Provider override (overrides active_provider from config)
         resume: If True, resume from saved state
         auto_apply: If True, automatically apply code changes from agent responses
@@ -659,6 +674,7 @@ def run_tasks(
         agent_client=agent_client,
         provider_name=provider_name,
         auto_apply_changes=auto_apply,
+        stop_on_first_failure=stop_on_first_failure,
         config=config,
     )
     success = runner.run()

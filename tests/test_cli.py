@@ -46,7 +46,7 @@ class TestRunCommand:
         assert result.exit_code == 0
         assert "Run tasks from a task list file" in result.output
         assert "--dry-run" in result.output
-        assert "--stop-on-failure" in result.output
+        assert "--stop-on-first-failure" in result.output
         assert "--provider" in result.output
 
     def test_run_with_valid_file(self):
@@ -98,8 +98,8 @@ tasks:
         finally:
             task_file.unlink()
 
-    def test_run_stop_on_failure_flag(self):
-        """Test run command with --stop-on-failure flag."""
+    def test_run_stop_on_first_failure_flag(self):
+        """Test run command with --stop-on-first-failure flag."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(
                 """
@@ -114,7 +114,7 @@ tasks:
 
         try:
             result = self.runner.invoke(
-                main, ["run", str(task_file), "--stop-on-failure", "--dry-run"]
+                main, ["run", str(task_file), "--stop-on-first-failure", "--dry-run"]
             )
             assert result.exit_code == 0
         finally:

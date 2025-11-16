@@ -46,9 +46,9 @@ def main(ctx):
     help="Show what would be executed without running tasks",
 )
 @click.option(
-    "--stop-on-failure",
+    "--stop-on-first-failure",
     is_flag=True,
-    help="Stop immediately on first task failure",
+    help="Stop and prompt user on first post-hook failure (no automatic retries)",
 )
 @click.option(
     "--provider",
@@ -72,7 +72,7 @@ def run(
     ctx,
     task_file: Path,
     dry_run: bool,
-    stop_on_failure: bool,
+    stop_on_first_failure: bool,
     provider: Optional[str],
     resume: bool,
     auto_apply: bool,
@@ -91,14 +91,14 @@ def run(
     Examples:
       taskmaster run tasks.yml
       taskmaster run tasks.json --dry-run
-      taskmaster run tasks.yml --stop-on-failure
+      taskmaster run tasks.yml --stop-on-first-failure
       taskmaster run tasks.yml --provider openai
     """
     # Run tasks using the task runner
     success = run_tasks(
         task_file=task_file,
         dry_run=dry_run,
-        stop_on_failure=stop_on_failure,
+        stop_on_first_failure=stop_on_first_failure,
         provider=provider,
         resume=resume,
         auto_apply=auto_apply,

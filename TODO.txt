@@ -186,7 +186,7 @@ Goal: If tests keep failing for a task, the app should stop automatically and as
 	•	[S]kip this task.
 	•	[A]bort entire run.
 	•	Persist the user's choice in state.
-	•	⬜ Task 5.4 — “Hard stop” mode
+	•	✅ Task 5.4 — "Hard stop" mode
 	•	Add option --stop-on-first-failure:
 	•	Any post-hook failure stops immediately and prompts user.
 	•	Useful in high-risk repos.
