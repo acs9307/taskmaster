@@ -98,6 +98,8 @@ tasks:
             result = self.runner.invoke(main, ["run", str(task_file), "--dry-run"])
             assert result.exit_code == 0
             assert "DRY RUN" in result.output
+            assert "Execution Plan" in result.output
+            assert "Would complete successfully" in result.output
         finally:
             task_file.unlink()
 
@@ -213,6 +215,37 @@ tasks:
             assert result.exit_code == 0
             # Should display timing in format like "0.0s" or "1.5s"
             assert "s)" in result.output  # Timing suffix
+        finally:
+            task_file.unlink()
+
+    def test_run_dry_run_shows_execution_plan(self):
+        """Test that dry-run shows detailed execution plan with hooks."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
+            f.write(
+                """
+tasks:
+  - id: T1
+    title: Test task with hooks
+    description: A test task
+    pre_hooks:
+      - lint
+    post_hooks:
+      - test
+"""
+            )
+            f.flush()
+            task_file = Path(f.name)
+
+        try:
+            result = self.runner.invoke(main, ["run", str(task_file), "--dry-run"])
+            assert result.exit_code == 0
+            # Should show execution plan
+            assert "Execution Plan" in result.output
+            # Should show hooks
+            assert "Pre-hooks that would execute" in result.output or "lint" in result.output
+            assert "Post-hooks that would execute" in result.output or "test" in result.output
+            # Should show completion
+            assert "Would complete successfully" in result.output
         finally:
             task_file.unlink()
 

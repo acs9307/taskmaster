@@ -272,7 +272,7 @@ Goal: Make the tool nice to use from a terminal and easy to integrate into dev w
 	•	s to skip current task.
 	•	q to abort run.
 	•	Works even when agent or tests are taking a long time.
-	•	⬜ Task 8.3 — Dry-run / planning mode
+	•	✅ Task 8.3 — Dry-run / planning mode
 	•	Implement --dry-run flag:
 	•	Show which tasks would run, which hooks would execute, and estimated agent calls.
 	•	Do not actually call the agent or run hooks.

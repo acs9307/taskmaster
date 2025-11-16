@@ -327,8 +327,61 @@ class TaskRunner:
         # Execute task
         success = False
         if self.dry_run:
+            # Dry run mode - show what would happen
             if not self.quiet:
-                click.secho("[DRY RUN] Would execute task", fg="yellow")
+                click.echo()
+                click.secho("📋 DRY RUN - Execution Plan:", fg="yellow", bold=True)
+                click.echo()
+
+                # Show pre-hooks that would run
+                pre_hooks = task.pre_hooks or (
+                    self.config.hook_defaults.pre_hooks if self.config else []
+                )
+                if pre_hooks:
+                    click.secho("  Pre-hooks that would execute:", fg="cyan")
+                    for hook_id in pre_hooks:
+                        if self.config:
+                            hook_config = self.config.get_hook(hook_id)
+                            if hook_config:
+                                click.echo(f"    • {hook_id}: {hook_config.command}")
+                            else:
+                                click.echo(f"    • {hook_id}")
+                        else:
+                            click.echo(f"    • {hook_id}")
+                    click.echo()
+
+                # Show agent call that would be made
+                if self.agent_client:
+                    click.secho("  Agent call that would be made:", fg="cyan")
+                    click.echo(f"    • Provider: {self.provider_name}")
+                    if self.agent_client:
+                        model = self.agent_client.get_model_name()
+                        click.echo(f"    • Model: {model}")
+                    click.echo(f"    • Task: {task.title}")
+                    click.echo()
+                else:
+                    click.secho("  No agent configured", fg="yellow")
+                    click.echo()
+
+                # Show post-hooks that would run
+                post_hooks = task.post_hooks or (
+                    self.config.hook_defaults.post_hooks if self.config else []
+                )
+                if post_hooks:
+                    click.secho("  Post-hooks that would execute:", fg="cyan")
+                    for hook_id in post_hooks:
+                        if self.config:
+                            hook_config = self.config.get_hook(hook_id)
+                            if hook_config:
+                                click.echo(f"    • {hook_id}: {hook_config.command}")
+                            else:
+                                click.echo(f"    • {hook_id}")
+                        else:
+                            click.echo(f"    • {hook_id}")
+                    click.echo()
+
+                click.secho("  ✓ Would complete successfully", fg="green")
+
             task.mark_completed()
             success = True
         elif self.agent_client:
